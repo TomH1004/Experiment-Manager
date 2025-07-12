@@ -204,6 +204,15 @@
             box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
             outline: none;
         }
+
+        .order-row-used {
+            background-color: #fef3c7;
+            border-left: 4px solid #f59e0b;
+        }
+
+        .order-row-used:hover {
+            background-color: #fde68a;
+        }
     </style>
 </head>
 <body class="min-h-screen">
@@ -217,16 +226,14 @@
                     </h1>
                     <p class="text-gray-600 font-medium">Research Protocol Management Interface</p>
                     <div class="flex items-center mt-3 space-x-4">
-                        <span class="research-badge">RESEARCH GRADE</span>
-                        <span class="text-sm text-gray-500">Version 2.0.1</span>
-                        <span class="text-sm text-gray-500">Session ID: <span id="session-id" class="mono-font">Loading...</span></span>
+                        <!-- Research grade badge removed -->
                     </div>
                 </div>
                 <div class="text-right">
                     <div class="text-gray-500 text-sm mb-1">System Status</div>
                     <div class="flex items-center">
-                        <span class="network-indicator connected"></span>
-                        <span class="text-green-600 font-medium">OPERATIONAL</span>
+                        <span id="network-indicator" class="network-indicator connected"></span>
+                        <span id="status-text" class="text-green-600 font-medium">CHECKING...</span>
                     </div>
                     <div class="text-xs text-gray-500 mt-1" id="system-time"></div>
                 </div>
@@ -282,9 +289,14 @@
                     <i class="fas fa-flask mr-3 text-purple-600"></i>
                     Experimental Conditions Matrix
                 </div>
-                <button id="open-config-modal" class="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-2 rounded-md text-sm">
-                    <i class="fas fa-cogs mr-2"></i>Configure Options
-                </button>
+                <div class="flex space-x-2">
+                    <button id="open-order-generator" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-md text-sm">
+                        <i class="fas fa-list mr-2"></i>Generate Order
+                    </button>
+                    <button id="open-config-modal" class="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-2 rounded-md text-sm">
+                        <i class="fas fa-cogs mr-2"></i>Configure Options
+                    </button>
+                </div>
             </h2>
             
             <div class="overflow-x-auto">
@@ -292,10 +304,8 @@
                     <thead>
                         <tr>
                             <th>Condition ID</th>
-                            <th>Intervention Type</th>
-                            <th>Object Category</th>
-                            <th>Stimulus Object</th>
-                            <th>Status</th>
+                            <th id="matrix-header-variable1">Variable 1</th>
+                            <th id="matrix-header-variable2">Variable 2</th>
                         </tr>
                     </thead>
                     <tbody id="conditions-matrix-body">
@@ -417,6 +427,37 @@
                     </button>
                 </div>
                 
+                <!-- Variable Names Configuration -->
+                <div class="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                    <h3 class="text-lg font-medium text-gray-700 mb-4 flex items-center">
+                        <i class="fas fa-tag mr-2 text-blue-600"></i>
+                        Variable Names
+                    </h3>
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Variable 1 Name (Singular)</label>
+                            <input type="text" id="variable1-name" class="scientific-input w-full px-3 py-2 border border-gray-300 rounded-md text-sm" placeholder="e.g., Condition Type">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Variable 1 Name (Plural)</label>
+                            <input type="text" id="variable1-plural" class="scientific-input w-full px-3 py-2 border border-gray-300 rounded-md text-sm" placeholder="e.g., Condition Types">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Variable 2 Name (Singular)</label>
+                            <input type="text" id="variable2-name" class="scientific-input w-full px-3 py-2 border border-gray-300 rounded-md text-sm" placeholder="e.g., Object Type">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Variable 2 Name (Plural)</label>
+                            <input type="text" id="variable2-plural" class="scientific-input w-full px-3 py-2 border border-gray-300 rounded-md text-sm" placeholder="e.g., Object Types">
+                        </div>
+                    </div>
+                    <div class="mt-4">
+                        <button id="update-variable-names" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm">
+                            <i class="fas fa-save mr-2"></i>Update Variable Names
+                        </button>
+                    </div>
+                </div>
+                
                 <!-- Validation Message -->
                 <div id="config-validation-message" class="hidden mb-4 p-3 rounded-md">
                     <div class="flex items-center">
@@ -426,11 +467,11 @@
                 </div>
                 
                 <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-6">
-                    <!-- Condition Types Configuration -->
+                    <!-- Variable 1 Configuration -->
                     <div class="border rounded-lg p-4 bg-gray-50">
                         <h3 class="text-lg font-medium text-gray-700 mb-4 flex items-center">
                             <i class="fas fa-tags mr-2 text-purple-600"></i>
-                            Intervention Types
+                            <span id="variable1-title">Variable 1</span>
                             <span id="condition-count" class="ml-2 text-sm text-gray-500 bg-gray-200 px-2 py-1 rounded-full">(0)</span>
                         </h3>
                         
@@ -440,7 +481,7 @@
                             </div>
                             
                             <div class="flex gap-2">
-                                <input type="text" id="new-condition-type" placeholder="Add new intervention type..." 
+                                <input type="text" id="new-condition-type" placeholder="Add new value..." 
                                        class="scientific-input flex-1 px-3 py-2 border border-gray-300 rounded-md text-sm">
                                 <button id="add-condition-type" class="scientific-button text-white px-4 py-2 rounded-md text-sm">
                                     <i class="fas fa-plus mr-1"></i>Add
@@ -449,11 +490,11 @@
                         </div>
                     </div>
                     
-                    <!-- Object Types Configuration -->
+                    <!-- Variable 2 Configuration -->
                     <div class="border rounded-lg p-4 bg-gray-50">
                         <h3 class="text-lg font-medium text-gray-700 mb-4 flex items-center">
                             <i class="fas fa-cube mr-2 text-green-600"></i>
-                            Stimulus Objects
+                            <span id="variable2-title">Variable 2</span>
                             <span id="object-count" class="ml-2 text-sm text-gray-500 bg-gray-200 px-2 py-1 rounded-full">(0)</span>
                         </h3>
                         
@@ -463,7 +504,7 @@
                             </div>
                             
                             <div class="flex gap-2">
-                                <input type="text" id="new-object-type" placeholder="Add new stimulus object..." 
+                                <input type="text" id="new-object-type" placeholder="Add new value..." 
                                        class="scientific-input flex-1 px-3 py-2 border border-gray-300 rounded-md text-sm">
                                 <button id="add-object-type" class="scientific-button text-white px-4 py-2 rounded-md text-sm">
                                     <i class="fas fa-plus mr-1"></i>Add
@@ -479,6 +520,166 @@
                     </button>
                     <button id="save-all-config" class="scientific-button text-white px-6 py-2 rounded-md text-sm">
                         <i class="fas fa-save mr-2"></i>Save Changes
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- First-Time Setup Modal -->
+    <div id="first-time-setup-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden flex items-center justify-center z-50">
+        <div class="scientific-card rounded-lg max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+            <div class="p-6">
+                <div class="text-center mb-6">
+                    <i class="fas fa-magic text-blue-600 text-4xl mb-4"></i>
+                    <h2 class="text-2xl font-semibold text-gray-800 mb-2">Welcome to VR Experiment Manager</h2>
+                    <p class="text-gray-600">Let's set up your experimental variables to get started.</p>
+                </div>
+                
+                <!-- Setup Form -->
+                <div class="space-y-6">
+                    <!-- Variable Names -->
+                    <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                        <h3 class="text-lg font-medium text-gray-700 mb-4">Define Your Variables</h3>
+                        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">First Variable Name (Singular)</label>
+                                <input type="text" id="setup-variable1-name" class="scientific-input w-full px-3 py-2 border border-gray-300 rounded-md text-sm" placeholder="e.g., Condition Type, Treatment, Method">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">First Variable Name (Plural)</label>
+                                <input type="text" id="setup-variable1-plural" class="scientific-input w-full px-3 py-2 border border-gray-300 rounded-md text-sm" placeholder="e.g., Condition Types, Treatments, Methods">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Second Variable Name (Singular)</label>
+                                <input type="text" id="setup-variable2-name" class="scientific-input w-full px-3 py-2 border border-gray-300 rounded-md text-sm" placeholder="e.g., Object Type, Stimulus, Tool">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Second Variable Name (Plural)</label>
+                                <input type="text" id="setup-variable2-plural" class="scientific-input w-full px-3 py-2 border border-gray-300 rounded-md text-sm" placeholder="e.g., Object Types, Stimuli, Tools">
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Variable Values -->
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <div class="border rounded-lg p-4 bg-gray-50">
+                            <h3 class="text-lg font-medium text-gray-700 mb-4 flex items-center">
+                                <i class="fas fa-tags mr-2 text-purple-600"></i>
+                                <span id="setup-variable1-title">First Variable Values</span>
+                            </h3>
+                            <div class="space-y-3">
+                                <div id="setup-variable1-list" class="space-y-2">
+                                    <!-- Will be populated dynamically -->
+                                </div>
+                                <div class="flex gap-2">
+                                    <input type="text" id="setup-new-variable1" placeholder="Add value..." 
+                                           class="scientific-input flex-1 px-3 py-2 border border-gray-300 rounded-md text-sm">
+                                    <button id="setup-add-variable1" class="scientific-button text-white px-4 py-2 rounded-md text-sm">
+                                        <i class="fas fa-plus mr-1"></i>Add
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="border rounded-lg p-4 bg-gray-50">
+                            <h3 class="text-lg font-medium text-gray-700 mb-4 flex items-center">
+                                <i class="fas fa-cube mr-2 text-green-600"></i>
+                                <span id="setup-variable2-title">Second Variable Values</span>
+                            </h3>
+                            <div class="space-y-3">
+                                <div id="setup-variable2-list" class="space-y-2">
+                                    <!-- Will be populated dynamically -->
+                                </div>
+                                <div class="flex gap-2">
+                                    <input type="text" id="setup-new-variable2" placeholder="Add value..." 
+                                           class="scientific-input flex-1 px-3 py-2 border border-gray-300 rounded-md text-sm">
+                                    <button id="setup-add-variable2" class="scientific-button text-white px-4 py-2 rounded-md text-sm">
+                                        <i class="fas fa-plus mr-1"></i>Add
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Setup Validation Message -->
+                    <div id="setup-validation-message" class="hidden p-3 rounded-md">
+                        <div class="flex items-center">
+                            <i class="fas fa-exclamation-triangle mr-2"></i>
+                            <span id="setup-validation-text"></span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="flex justify-end space-x-4 mt-6">
+                    <button id="complete-setup" class="scientific-button text-white px-6 py-2 rounded-md text-sm">
+                        <i class="fas fa-check mr-2"></i>Complete Setup
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Order Generator Modal -->
+    <div id="order-generator-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden flex items-center justify-center z-50">
+        <div class="scientific-card rounded-lg max-w-6xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+            <div class="p-6">
+                <div class="flex items-center justify-between mb-6">
+                    <h2 class="text-xl font-semibold text-gray-800 flex items-center">
+                        <i class="fas fa-list mr-3 text-blue-600"></i>
+                        Experimental Order Generator
+                    </h2>
+                    <button id="close-order-generator" class="text-gray-500 hover:text-gray-700 text-xl">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                
+                <div class="mb-6">
+                    <p class="text-gray-600 mb-4">
+                        Select a pre-generated order of condition-object combinations for your experiment.
+                        Orders marked as "Used" have been previously tested.
+                    </p>
+                    
+                    <div class="flex items-center justify-between mb-4">
+                        <div class="flex items-center space-x-4">
+                            <button id="generate-all-orders" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md text-sm">
+                                <i class="fas fa-sync mr-2"></i>Generate All Orders
+                            </button>
+                            <div class="text-sm text-gray-600">
+                                <span id="total-orders-count">0</span> total orders available
+                            </div>
+                        </div>
+                        <div class="flex items-center space-x-2">
+                            <label class="text-sm text-gray-600">
+                                <input type="checkbox" id="hide-used-orders" class="mr-2">
+                                Hide used orders
+                            </label>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="overflow-x-auto">
+                    <table class="data-table w-full">
+                        <thead>
+                            <tr>
+                                <th>Order ID</th>
+                                <th>Sequence</th>
+                                <th>Usage Count</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="orders-table-body">
+                            <!-- Orders will be populated here -->
+                        </tbody>
+                    </table>
+                </div>
+                
+                <div class="mt-6 flex justify-between">
+                    <button id="reset-order-uses" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-md text-sm">
+                        <i class="fas fa-undo mr-2"></i>Reset All Uses
+                    </button>
+                    <button id="close-order-generator-btn" class="bg-gray-500 hover:bg-gray-600 text-white px-6 py-2 rounded-md text-sm">
+                        <i class="fas fa-times mr-2"></i>Close
                     </button>
                 </div>
             </div>

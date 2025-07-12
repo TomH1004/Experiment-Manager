@@ -8,12 +8,22 @@ class VRExperimentalControlSystem {
         this.stimulusTypes = [];
         this.currentTargetIp = '';
         this.currentTargetPort = 0;
+        this.isConnected = false;
         
         // Configuration management
         this.currentConditionTypes = [];
         this.currentObjectTypes = [];
         this.pendingConditionTypes = [];
         this.pendingObjectTypes = [];
+        this.metadata = {};
+        
+        // First-time setup
+        this.setupVariable1Values = [];
+        this.setupVariable2Values = [];
+        
+        // Order generator
+        this.availableOrders = [];
+        this.selectedOrder = null;
         
         this.init();
     }
@@ -23,12 +33,72 @@ class VRExperimentalControlSystem {
         await this.createSession();
         this.setupEventListeners();
         this.initializeWebSocket();
-        this.loadSystemStatus();
-        this.loadConfigurations();
+        await this.loadSystemStatus();
+        await this.loadConfigurations();
+        this.startConnectionMonitoring();
+        
+        // Check if first-time setup is needed
+        if (this.metadata.is_first_time_setup) {
+            this.showFirstTimeSetup();
+        }
+    }
+    
+    startConnectionMonitoring() {
+        // Check connection immediately
+        this.checkServerConnection();
+        
+        // Then check every 5 seconds
+        setInterval(() => {
+            this.checkServerConnection();
+        }, 5000);
+    }
+    
+    async checkServerConnection() {
+        try {
+            const response = await fetch('/api/health', {
+                method: 'GET',
+                timeout: 3000
+            });
+            
+            if (response.ok) {
+                this.updateConnectionStatus(true);
+            } else {
+                this.updateConnectionStatus(false);
+            }
+        } catch (error) {
+            this.updateConnectionStatus(false);
+        }
+    }
+    
+    updateConnectionStatus(connected) {
+        const indicator = document.getElementById('network-indicator');
+        const statusText = document.getElementById('status-text');
+        
+        if (connected !== this.isConnected) {
+            this.isConnected = connected;
+            
+            if (connected) {
+                indicator.className = 'network-indicator connected';
+                statusText.textContent = 'OPERATIONAL';
+                statusText.className = 'text-green-600 font-medium';
+            } else {
+                indicator.className = 'network-indicator disconnected';
+                statusText.textContent = 'DISCONNECTED';
+                statusText.className = 'text-red-600 font-medium';
+            }
+        }
     }
     
     async loadConfigurations() {
         try {
+            // Load metadata first
+            const metadataResponse = await fetch('/api/config/metadata');
+            const metadataData = await metadataResponse.json();
+            if (metadataData.success) {
+                this.metadata = metadataData.metadata;
+                this.updateVariableNames();
+            }
+            
             // Load condition types
             const conditionResponse = await fetch('/api/config/condition-types');
             const conditionData = await conditionResponse.json();
@@ -54,6 +124,39 @@ class VRExperimentalControlSystem {
         }
     }
     
+    updateVariableNames() {
+        // Update UI elements with dynamic variable names
+        if (this.metadata.variable1_name) {
+            document.getElementById('variable1-title').textContent = this.metadata.variable1_plural || 'Variable 1';
+            document.getElementById('matrix-header-variable1').textContent = this.metadata.variable1_name || 'Variable 1';
+            
+            // Update placeholders
+            const newConditionInput = document.getElementById('new-condition-type');
+            if (newConditionInput) {
+                newConditionInput.placeholder = `Add new ${this.metadata.variable1_name.toLowerCase()}...`;
+            }
+        }
+        
+        if (this.metadata.variable2_name) {
+            document.getElementById('variable2-title').textContent = this.metadata.variable2_plural || 'Variable 2';
+            document.getElementById('matrix-header-variable2').textContent = this.metadata.variable2_name || 'Variable 2';
+            
+            // Update placeholders
+            const newObjectInput = document.getElementById('new-object-type');
+            if (newObjectInput) {
+                newObjectInput.placeholder = `Add new ${this.metadata.variable2_name.toLowerCase()}...`;
+            }
+        }
+        
+        // Update variable name inputs in config modal
+        if (document.getElementById('variable1-name')) {
+            document.getElementById('variable1-name').value = this.metadata.variable1_name || '';
+            document.getElementById('variable1-plural').value = this.metadata.variable1_plural || '';
+            document.getElementById('variable2-name').value = this.metadata.variable2_name || '';
+            document.getElementById('variable2-plural').value = this.metadata.variable2_plural || '';
+        }
+    }
+    
     displayConditionTypes() {
         const container = document.getElementById('condition-types-list');
         const countElement = document.getElementById('condition-count');
@@ -64,9 +167,14 @@ class VRExperimentalControlSystem {
             item.className = 'flex items-center justify-between bg-white px-3 py-2 border border-gray-200 rounded-md';
             item.innerHTML = `
                 <span class="text-sm font-medium text-gray-700">${type}</span>
-                <button class="text-red-600 hover:text-red-800 text-sm" onclick="controlSystem.removeConditionType(${index})">
-                    <i class="fas fa-trash"></i>
-                </button>
+                <div class="flex space-x-2">
+                    <button class="text-red-600 hover:text-red-800 text-sm" onclick="controlSystem.removeConditionType(${index})">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                    <button class="text-red-600 hover:text-red-800 text-sm" onclick="controlSystem.deleteConditionType('${type}')">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
             `;
             container.appendChild(item);
         });
@@ -85,9 +193,14 @@ class VRExperimentalControlSystem {
             item.className = 'flex items-center justify-between bg-white px-3 py-2 border border-gray-200 rounded-md';
             item.innerHTML = `
                 <span class="text-sm font-medium text-gray-700">${type}</span>
-                <button class="text-red-600 hover:text-red-800 text-sm" onclick="controlSystem.removeObjectType(${index})">
-                    <i class="fas fa-trash"></i>
-                </button>
+                <div class="flex space-x-2">
+                    <button class="text-red-600 hover:text-red-800 text-sm" onclick="controlSystem.removeObjectType(${index})">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                    <button class="text-red-600 hover:text-red-800 text-sm" onclick="controlSystem.deleteObjectType('${type}')">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
             `;
             container.appendChild(item);
         });
@@ -138,6 +251,43 @@ class VRExperimentalControlSystem {
         this.pendingConditionTypes.splice(index, 1);
         this.displayConditionTypes();
     }
+
+    async deleteConditionType(type) {
+        this.showConfirmationDialog(
+            'Delete Condition Type',
+            `Are you sure you want to delete the condition type "${type}"? This action cannot be undone.`,
+            async () => {
+                this.hideConfirmationDialog();
+                try {
+                    this.showProcessingState('Deleting condition type...');
+                    const response = await fetch('/api/config/condition-types', {
+                        method: 'DELETE',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            condition_type: type
+                        })
+                    });
+                    const data = await response.json();
+                    if (data.success) {
+                        this.showSystemAlert('Condition Type Deleted', data.message, 'success');
+                        this.currentConditionTypes = data.condition_types;
+                        this.pendingConditionTypes = [...data.condition_types];
+                        this.displayConditionTypes();
+                        this.validateConfiguration();
+                    } else {
+                        this.showSystemAlert('Delete Error', data.message, 'error');
+                    }
+                } catch (error) {
+                    console.error('Error deleting condition type:', error);
+                    this.showSystemAlert('System Error', 'Failed to delete condition type.', 'error');
+                } finally {
+                    this.hideProcessingState();
+                }
+            }
+        );
+    }
     
     addObjectType() {
         const input = document.getElementById('new-object-type');
@@ -153,6 +303,43 @@ class VRExperimentalControlSystem {
     removeObjectType(index) {
         this.pendingObjectTypes.splice(index, 1);
         this.displayObjectTypes();
+    }
+
+    async deleteObjectType(type) {
+        this.showConfirmationDialog(
+            'Delete Object Type',
+            `Are you sure you want to delete the object type "${type}"? This action cannot be undone.`,
+            async () => {
+                this.hideConfirmationDialog();
+                try {
+                    this.showProcessingState('Deleting object type...');
+                    const response = await fetch('/api/config/object-types', {
+                        method: 'DELETE',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            object_type: type
+                        })
+                    });
+                    const data = await response.json();
+                    if (data.success) {
+                        this.showSystemAlert('Object Type Deleted', data.message, 'success');
+                        this.currentObjectTypes = data.object_types;
+                        this.pendingObjectTypes = [...data.object_types];
+                        this.displayObjectTypes();
+                        this.validateConfiguration();
+                    } else {
+                        this.showSystemAlert('Delete Error', data.message, 'error');
+                    }
+                } catch (error) {
+                    console.error('Error deleting object type:', error);
+                    this.showSystemAlert('System Error', 'Failed to delete object type.', 'error');
+                } finally {
+                    this.hideProcessingState();
+                }
+            }
+        );
     }
     
     async saveAllConfig() {
@@ -234,12 +421,10 @@ class VRExperimentalControlSystem {
                     <select id="condition-${i + 1}" class="scientific-input w-full px-3 py-2 border border-gray-300 rounded-md text-sm">
                     </select>
                 </td>
-                <td class="text-gray-600">Virtual Object</td>
                 <td>
                     <select id="object-${i + 1}" class="scientific-input w-full px-3 py-2 border border-gray-300 rounded-md text-sm">
                     </select>
                 </td>
-                <td><span id="status-${i + 1}" class="px-2 py-1 text-xs rounded-full status-pending">Pending</span></td>
             `;
             tbody.appendChild(row);
         }
@@ -259,7 +444,6 @@ class VRExperimentalControlSystem {
             const data = await response.json();
             if (data.success) {
                 this.sessionId = data.session_id;
-                document.getElementById('session-id').textContent = this.sessionId.substring(0, 8);
                 console.log('Research session initialized:', this.sessionId);
             } else {
                 throw new Error('Failed to initialize session');
@@ -356,6 +540,7 @@ class VRExperimentalControlSystem {
             this.protocolConfigured = data.experiment_configured;
             this.currentTargetIp = data.udp_ip;
             this.currentTargetPort = data.udp_port;
+            this.metadata = data.metadata || {}; // Store metadata
             
             this.populateInterventionSelectors();
             this.updateControlInterface(data);
@@ -391,6 +576,10 @@ class VRExperimentalControlSystem {
                     option.textContent = type;
                     select.appendChild(option);
                 });
+                // Select the option at the current dropdown index
+                if (this.interventionTypes[i - 1]) {
+                    select.value = this.interventionTypes[i - 1];
+                }
             }
         }
         
@@ -405,6 +594,10 @@ class VRExperimentalControlSystem {
                     option.textContent = type;
                     select.appendChild(option);
                 });
+                // Select the option at the current dropdown index
+                if (this.stimulusTypes[i - 1]) {
+                    select.value = this.stimulusTypes[i - 1];
+                }
             }
         }
     }
@@ -555,6 +748,38 @@ class VRExperimentalControlSystem {
             this.closeConfigModal();
         });
         
+        // Order generator modal controls
+        document.getElementById('open-order-generator').addEventListener('click', () => {
+            this.openOrderGenerator();
+        });
+        
+        document.getElementById('close-order-generator').addEventListener('click', () => {
+            this.closeOrderGenerator();
+        });
+        
+        document.getElementById('close-order-generator-btn').addEventListener('click', () => {
+            this.closeOrderGenerator();
+        });
+        
+        document.getElementById('generate-all-orders').addEventListener('click', () => {
+            this.generateAllOrders();
+        });
+        
+        document.getElementById('hide-used-orders').addEventListener('change', () => {
+            this.filterOrdersDisplay();
+        });
+        
+        document.getElementById('reset-order-uses').addEventListener('click', () => {
+            this.resetOrderUses();
+        });
+        
+        // Close order generator modal when clicking outside
+        document.getElementById('order-generator-modal').addEventListener('click', (e) => {
+            if (e.target.id === 'order-generator-modal') {
+                this.closeOrderGenerator();
+            }
+        });
+        
         document.getElementById('cancel-config-changes').addEventListener('click', () => {
             this.cancelConfigChanges();
         });
@@ -577,6 +802,11 @@ class VRExperimentalControlSystem {
         
         document.getElementById('add-object-type').addEventListener('click', () => {
             this.addObjectType();
+        });
+        
+        // Update variable names button
+        document.getElementById('update-variable-names').addEventListener('click', () => {
+            this.updateVariableNamesConfig();
         });
         
         // Allow adding types with Enter key
@@ -652,6 +882,7 @@ class VRExperimentalControlSystem {
             // Close config modal with Escape key
             if (e.key === 'Escape') {
                 this.closeConfigModal();
+                this.closeOrderGenerator();
             }
         });
     }
@@ -667,6 +898,180 @@ class VRExperimentalControlSystem {
     closeConfigModal() {
         const modal = document.getElementById('config-modal');
         modal.classList.add('hidden');
+    }
+    
+    // Order Generator Functions
+    openOrderGenerator() {
+        const modal = document.getElementById('order-generator-modal');
+        modal.classList.remove('hidden');
+        this.loadAvailableOrders();
+    }
+    
+    closeOrderGenerator() {
+        const modal = document.getElementById('order-generator-modal');
+        modal.classList.add('hidden');
+    }
+    
+    async loadAvailableOrders() {
+        try {
+            const response = await fetch('/api/orders');
+            const data = await response.json();
+            if (data.success) {
+                this.availableOrders = data.orders;
+                this.displayOrders();
+            }
+        } catch (error) {
+            console.error('Error loading orders:', error);
+        }
+    }
+    
+    async generateAllOrders() {
+        try {
+            this.showProcessingState('Generating all possible orders...');
+            
+            const response = await fetch('/api/orders/generate', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            });
+            
+            const data = await response.json();
+            if (data.success) {
+                this.availableOrders = data.orders;
+                this.displayOrders();
+                this.showSystemAlert('Orders Generated', `Generated ${data.orders.length} unique orders.`, 'success');
+            } else {
+                this.showSystemAlert('Generation Error', data.message, 'error');
+            }
+        } catch (error) {
+            console.error('Error generating orders:', error);
+            this.showSystemAlert('System Error', 'Failed to generate orders.', 'error');
+        } finally {
+            this.hideProcessingState();
+        }
+    }
+    
+    displayOrders() {
+        const tbody = document.getElementById('orders-table-body');
+        const countElement = document.getElementById('total-orders-count');
+        const hideUsed = document.getElementById('hide-used-orders').checked;
+        
+        tbody.innerHTML = '';
+        
+        let visibleOrders = this.availableOrders;
+        if (hideUsed) {
+            visibleOrders = this.availableOrders.filter(order => order.usage_count === 0);
+        }
+        
+        visibleOrders.forEach(order => {
+            const row = document.createElement('tr');
+            const isUsed = order.usage_count > 0;
+            
+            // Add highlighting class for used orders
+            if (isUsed) {
+                row.classList.add('order-row-used');
+            }
+            
+            row.innerHTML = `
+                <td class="font-mono text-sm">${order.order_id}</td>
+                <td class="text-sm">
+                    <div class="max-w-md">
+                        ${order.sequence.map((item, index) => 
+                            `<span class="inline-block bg-gray-100 px-2 py-1 rounded text-xs mr-1 mb-1">
+                                ${index + 1}. ${item.condition_type} → ${item.object_type}
+                            </span>`
+                        ).join('')}
+                    </div>
+                </td>
+                <td class="text-sm">${order.usage_count}</td>
+                <td>
+                    <button onclick="controlSystem.selectOrder('${order.order_id}')" 
+                            class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-sm">
+                        <i class="fas fa-check mr-1"></i>Select
+                    </button>
+                </td>
+            `;
+            tbody.appendChild(row);
+        });
+        
+        countElement.textContent = this.availableOrders.length;
+    }
+    
+    filterOrdersDisplay() {
+        this.displayOrders();
+    }
+    
+    async selectOrder(orderId) {
+        try {
+            const order = this.availableOrders.find(o => o.order_id === orderId);
+            if (!order) {
+                this.showSystemAlert('Selection Error', 'Order not found.', 'error');
+                return;
+            }
+            
+            this.selectedOrder = order;
+            this.applyOrderToMatrix(order);
+            
+            // Automatically set the Group ID to the selected order ID
+            const groupIdField = document.getElementById('group-id');
+            if (groupIdField) {
+                groupIdField.value = orderId;
+            }
+            
+            // Mark order as used
+            await this.markOrderAsUsed(orderId);
+            
+            this.closeOrderGenerator();
+            
+            this.showSystemAlert('Order Selected', 
+                `Applied order ${orderId} to the experimental matrix and set as Group ID.`, 'success');
+            
+        } catch (error) {
+            console.error('Error selecting order:', error);
+            this.showSystemAlert('System Error', 'Failed to select order.', 'error');
+        }
+    }
+    
+    async markOrderAsUsed(orderId) {
+        try {
+            const response = await fetch(`/api/orders/${orderId}/use`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    session_id: this.sessionId
+                })
+            });
+            
+            const data = await response.json();
+            if (data.success) {
+                console.log(`Order ${orderId} marked as used`);
+                // Update the local order data
+                const order = this.availableOrders.find(o => o.order_id === orderId);
+                if (order) {
+                    order.usage_count += 1;
+                }
+            } else {
+                console.error('Failed to mark order as used:', data.message);
+            }
+        } catch (error) {
+            console.error('Error marking order as used:', error);
+        }
+    }
+    
+    applyOrderToMatrix(order) {
+        // Apply the selected order to the conditions matrix
+        order.sequence.forEach((item, index) => {
+            const conditionSelect = document.getElementById(`condition-${index + 1}`);
+            const objectSelect = document.getElementById(`object-${index + 1}`);
+            
+            if (conditionSelect && objectSelect) {
+                conditionSelect.value = item.condition_type;
+                objectSelect.value = item.object_type;
+            }
+        });
     }
     
     async updateNetworkConfiguration() {
@@ -777,6 +1182,249 @@ class VRExperimentalControlSystem {
         } catch (error) {
             console.error('Error validating protocol:', error);
             this.showSystemAlert('System Error', 'Failed to validate experimental protocol.', 'error');
+        } finally {
+            this.hideProcessingState();
+        }
+    }
+    
+    // First-time setup methods
+    showFirstTimeSetup() {
+        const modal = document.getElementById('first-time-setup-modal');
+        modal.classList.remove('hidden');
+        this.setupEventListenersForSetup();
+    }
+    
+    setupEventListenersForSetup() {
+        // Variable name change listeners
+        document.getElementById('setup-variable1-name').addEventListener('input', () => {
+            this.updateSetupTitles();
+        });
+        document.getElementById('setup-variable2-name').addEventListener('input', () => {
+            this.updateSetupTitles();
+        });
+        
+        // Add value buttons
+        document.getElementById('setup-add-variable1').addEventListener('click', () => {
+            this.addSetupVariable1();
+        });
+        document.getElementById('setup-add-variable2').addEventListener('click', () => {
+            this.addSetupVariable2();
+        });
+        
+        // Enter key support
+        document.getElementById('setup-new-variable1').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                this.addSetupVariable1();
+            }
+        });
+        document.getElementById('setup-new-variable2').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                this.addSetupVariable2();
+            }
+        });
+        
+        // Complete setup button
+        document.getElementById('complete-setup').addEventListener('click', () => {
+            this.completeFirstTimeSetup();
+        });
+    }
+    
+    updateSetupTitles() {
+        const var1Name = document.getElementById('setup-variable1-name').value || 'First Variable';
+        const var2Name = document.getElementById('setup-variable2-name').value || 'Second Variable';
+        
+        document.getElementById('setup-variable1-title').textContent = `${var1Name} Values`;
+        document.getElementById('setup-variable2-title').textContent = `${var2Name} Values`;
+    }
+    
+    addSetupVariable1() {
+        const input = document.getElementById('setup-new-variable1');
+        const value = input.value.trim();
+        
+        if (value && !this.setupVariable1Values.includes(value)) {
+            this.setupVariable1Values.push(value);
+            input.value = '';
+            this.displaySetupVariable1();
+            this.validateSetup();
+        }
+    }
+    
+    addSetupVariable2() {
+        const input = document.getElementById('setup-new-variable2');
+        const value = input.value.trim();
+        
+        if (value && !this.setupVariable2Values.includes(value)) {
+            this.setupVariable2Values.push(value);
+            input.value = '';
+            this.displaySetupVariable2();
+            this.validateSetup();
+        }
+    }
+    
+    displaySetupVariable1() {
+        const container = document.getElementById('setup-variable1-list');
+        container.innerHTML = '';
+        
+        this.setupVariable1Values.forEach((value, index) => {
+            const item = document.createElement('div');
+            item.className = 'flex items-center justify-between bg-white px-3 py-2 border border-gray-200 rounded-md';
+            item.innerHTML = `
+                <span class="text-sm font-medium text-gray-700">${value}</span>
+                <button class="text-red-600 hover:text-red-800 text-sm" onclick="controlSystem.removeSetupVariable1(${index})">
+                    <i class="fas fa-trash"></i>
+                </button>
+            `;
+            container.appendChild(item);
+        });
+    }
+    
+    displaySetupVariable2() {
+        const container = document.getElementById('setup-variable2-list');
+        container.innerHTML = '';
+        
+        this.setupVariable2Values.forEach((value, index) => {
+            const item = document.createElement('div');
+            item.className = 'flex items-center justify-between bg-white px-3 py-2 border border-gray-200 rounded-md';
+            item.innerHTML = `
+                <span class="text-sm font-medium text-gray-700">${value}</span>
+                <button class="text-red-600 hover:text-red-800 text-sm" onclick="controlSystem.removeSetupVariable2(${index})">
+                    <i class="fas fa-trash"></i>
+                </button>
+            `;
+            container.appendChild(item);
+        });
+    }
+    
+    removeSetupVariable1(index) {
+        this.setupVariable1Values.splice(index, 1);
+        this.displaySetupVariable1();
+        this.validateSetup();
+    }
+    
+    removeSetupVariable2(index) {
+        this.setupVariable2Values.splice(index, 1);
+        this.displaySetupVariable2();
+        this.validateSetup();
+    }
+    
+    validateSetup() {
+        const messageElement = document.getElementById('setup-validation-message');
+        const textElement = document.getElementById('setup-validation-text');
+        const completeButton = document.getElementById('complete-setup');
+        
+        const var1Count = this.setupVariable1Values.length;
+        const var2Count = this.setupVariable2Values.length;
+        
+        if (var1Count === 0 || var2Count === 0) {
+            messageElement.className = 'p-3 rounded-md bg-red-50 border border-red-200 text-red-700';
+            textElement.textContent = 'Both variables must have at least one value.';
+            messageElement.classList.remove('hidden');
+            completeButton.disabled = true;
+            completeButton.classList.add('opacity-50', 'cursor-not-allowed');
+        } else if (var1Count !== var2Count) {
+            messageElement.className = 'p-3 rounded-md bg-orange-50 border border-orange-200 text-orange-700';
+            textElement.textContent = `Number of values must match (${var1Count} vs ${var2Count}).`;
+            messageElement.classList.remove('hidden');
+            completeButton.disabled = true;
+            completeButton.classList.add('opacity-50', 'cursor-not-allowed');
+        } else {
+            messageElement.classList.add('hidden');
+            completeButton.disabled = false;
+            completeButton.classList.remove('opacity-50', 'cursor-not-allowed');
+        }
+    }
+    
+    async completeFirstTimeSetup() {
+        try {
+            const variable1Name = document.getElementById('setup-variable1-name').value.trim();
+            const variable1Plural = document.getElementById('setup-variable1-plural').value.trim();
+            const variable2Name = document.getElementById('setup-variable2-name').value.trim();
+            const variable2Plural = document.getElementById('setup-variable2-plural').value.trim();
+            
+            if (!variable1Name || !variable1Plural || !variable2Name || !variable2Plural) {
+                this.showSystemAlert('Setup Error', 'All variable names are required.', 'error');
+                return;
+            }
+            
+            this.showProcessingState('Completing setup...');
+            
+            const response = await fetch('/api/config/first-time-setup', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    variable1_name: variable1Name,
+                    variable1_plural: variable1Plural,
+                    variable2_name: variable2Name,
+                    variable2_plural: variable2Plural,
+                    variable1_values: this.setupVariable1Values,
+                    variable2_values: this.setupVariable2Values
+                })
+            });
+            
+            const data = await response.json();
+            if (data.success) {
+                this.metadata = data.metadata;
+                this.showSystemAlert('Setup Complete', 'Your experiment configuration has been saved successfully!', 'success');
+                
+                // Hide setup modal and reload
+                document.getElementById('first-time-setup-modal').classList.add('hidden');
+                setTimeout(() => {
+                    window.location.reload();
+                }, 1500);
+            } else {
+                this.showSystemAlert('Setup Error', data.message, 'error');
+            }
+        } catch (error) {
+            console.error('Error completing setup:', error);
+            this.showSystemAlert('System Error', 'Failed to complete setup.', 'error');
+        } finally {
+            this.hideProcessingState();
+        }
+    }
+    
+    async updateVariableNamesConfig() {
+        try {
+            const variable1Name = document.getElementById('variable1-name').value.trim();
+            const variable1Plural = document.getElementById('variable1-plural').value.trim();
+            const variable2Name = document.getElementById('variable2-name').value.trim();
+            const variable2Plural = document.getElementById('variable2-plural').value.trim();
+            
+            if (!variable1Name || !variable1Plural || !variable2Name || !variable2Plural) {
+                this.showSystemAlert('Update Error', 'All variable names are required.', 'error');
+                return;
+            }
+            
+            this.showProcessingState('Updating variable names...');
+            
+            const metadata = {
+                ...this.metadata,
+                variable1_name: variable1Name,
+                variable1_plural: variable1Plural,
+                variable2_name: variable2Name,
+                variable2_plural: variable2Plural
+            };
+            
+            const response = await fetch('/api/config/metadata', {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ metadata })
+            });
+            
+            const data = await response.json();
+            if (data.success) {
+                this.metadata = data.metadata;
+                this.updateVariableNames();
+                this.showSystemAlert('Variable Names Updated', 'Variable names have been updated successfully.', 'success');
+            } else {
+                this.showSystemAlert('Update Error', data.message, 'error');
+            }
+        } catch (error) {
+            console.error('Error updating variable names:', error);
+            this.showSystemAlert('System Error', 'Failed to update variable names.', 'error');
         } finally {
             this.hideProcessingState();
         }
@@ -988,6 +1636,40 @@ class VRExperimentalControlSystem {
     hideConfirmationDialog() {
         document.getElementById('confirm-modal').classList.add('hidden');
     }
+
+    async resetOrderUses() {
+        this.showConfirmationDialog(
+            'Reset Order Uses',
+            'Are you sure you want to reset all order usage counts to zero? This action cannot be undone and will clear all usage history.',
+            () => this.confirmResetOrderUses()
+        );
+    }
+    
+    async confirmResetOrderUses() {
+        this.hideConfirmationDialog();
+        
+        try {
+            this.showProcessingState('Resetting order uses...');
+            const response = await fetch(`/api/orders/reset-uses/${this.sessionId}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            });
+            const data = await response.json();
+            if (data.success) {
+                this.showSystemAlert('Order Uses Reset', data.message, 'success');
+                this.loadAvailableOrders(); // Reload orders to reflect reset
+            } else {
+                this.showSystemAlert('Reset Error', data.message, 'error');
+            }
+        } catch (error) {
+            console.error('Error resetting order uses:', error);
+            this.showSystemAlert('System Error', 'Failed to reset order uses.', 'error');
+        } finally {
+            this.hideProcessingState();
+        }
+    }
 }
 
 // Initialize the experimental control system when DOM is ready
@@ -995,4 +1677,4 @@ let controlSystem;
 
 document.addEventListener('DOMContentLoaded', () => {
     controlSystem = new VRExperimentalControlSystem();
-}); 
+});

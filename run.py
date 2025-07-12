@@ -1,65 +1,50 @@
 #!/usr/bin/env python3
 """
-Run script for VR Experiment Supervisor Web Application
+VR Experiment Manager Launcher
+Starts the Flask application and automatically opens the browser.
 """
 
-import subprocess
-import sys
 import os
+import sys
+import time
+import webbrowser
+import threading
+from app import app, socketio, logger
 
-def install_dependencies():
-    """Install required dependencies"""
-    print("Installing dependencies...")
-    try:
-        subprocess.check_call([sys.executable, "-m", "pip", "install", "-r", "requirements.txt"])
-        print("Dependencies installed successfully!")
-    except subprocess.CalledProcessError as e:
-        print(f"Error installing dependencies: {e}")
-        return False
-    return True
-
-def start_application():
-    """Start the Flask application"""
-    print("Starting VR Experiment Supervisor Web Application...")
-    print("Access the application at: http://localhost:5000")
-    print("Press Ctrl+C to stop the application")
-    print("-" * 50)
-    
-    try:
-        # Import and run the app
-        from app import socketio, app
-        socketio.run(app, debug=True, host='0.0.0.0', port=5000)
-    except ImportError as e:
-        print(f"Error importing application: {e}")
-        print("Make sure all dependencies are installed correctly.")
-        return False
-    except KeyboardInterrupt:
-        print("\nApplication stopped by user.")
-        return True
-    except Exception as e:
-        print(f"Error starting application: {e}")
-        return False
+def open_browser():
+    """Open the browser to the application URL after a short delay"""
+    time.sleep(2)  # Wait for the server to start
+    url = "http://localhost:5000"
+    logger.info(f"Opening browser to {url}")
+    webbrowser.open(url)
 
 def main():
-    """Main function"""
-    print("VR Experiment Supervisor Web Application")
-    print("=" * 50)
-    
-    # Check if requirements.txt exists
-    if not os.path.exists("requirements.txt"):
-        print("Error: requirements.txt not found!")
-        print("Make sure you're running this script from the project directory.")
-        return 1
-    
-    # Install dependencies
-    if not install_dependencies():
-        return 1
-    
-    # Start the application
-    if not start_application():
-        return 1
-    
-    return 0
+    """Main function to start the application"""
+    try:
+        # Log startup
+        logger.info("=" * 50)
+        logger.info("VR Experiment Manager Starting Up")
+        logger.info("=" * 50)
+        
+        # Start browser opening thread
+        browser_thread = threading.Thread(target=open_browser, daemon=True)
+        browser_thread.start()
+        
+        # Start the Flask-SocketIO server
+        logger.info("Starting server on http://localhost:5000")
+        print("VR Experiment Manager is starting...")
+        print("Opening browser automatically...")
+        print("Press Ctrl+C to stop the server")
+        
+        socketio.run(app, debug=False, host='0.0.0.0', port=5000, log_output=False)
+        
+    except KeyboardInterrupt:
+        logger.info("Server stopped by user")
+        print("\nServer stopped.")
+    except Exception as e:
+        logger.error(f"Error starting server: {e}")
+        print(f"Error starting server: {e}")
+        sys.exit(1)
 
-if __name__ == "__main__":
-    sys.exit(main()) 
+if __name__ == '__main__':
+    main() 

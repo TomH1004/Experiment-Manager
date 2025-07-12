@@ -1,0 +1,29 @@
+2025-07-12 19:56:01,987 - app - INFO - Metadata configuration saved
+2025-07-12 19:56:01,987 - app - INFO - VR Experiment Manager initialized
+2025-07-12 19:56:02,002 - app - INFO - ==================================================
+2025-07-12 19:56:02,002 - app - INFO - VR Experiment Manager Starting Up
+2025-07-12 19:56:02,003 - app - INFO - ==================================================
+2025-07-12 19:56:02,003 - app - INFO - Starting server on http://localhost:5000
+2025-07-12 19:56:04,004 - app - INFO - Opening browser to http://localhost:5000
+2025-07-12 19:56:07,021 - app - INFO - Created new session: a18e7e39-a8a2-4512-bec3-9dba9e209036
+2025-07-12 19:56:07,022 - app - INFO - Session a18e7e39-a8a2-4512-bec3-9dba9e209036: Application started. Ready to configure experiment.
+2025-07-12 19:56:07,112 - app - INFO - Client connected: EQlcH0UgIZ2goPN4AAAB
+2025-07-12 19:56:07,146 - app - INFO - Client EQlcH0UgIZ2goPN4AAAB joined session a18e7e39-a8a2-4512-bec3-9dba9e209036
+2025-07-12 19:57:02,001 - app - INFO - Metadata configuration saved
+2025-07-12 19:57:02,002 - app - INFO - Condition types saved: ['Helpful', 'Demotivating', 'Control', 'Non-Interactive']
+2025-07-12 19:57:02,002 - app - INFO - Object types saved: ['Brick', 'Rope', 'Paperclip', 'Book']
+2025-07-12 19:57:03,510 - app - INFO - Client disconnected: EQlcH0UgIZ2goPN4AAAB
+2025-07-12 19:57:03,867 - app - INFO - Created new session: e0222bad-0291-437c-b6fe-de5ca890651f
+2025-07-12 19:57:03,867 - app - INFO - Session e0222bad-0291-437c-b6fe-de5ca890651f: Application started. Ready to configure experiment.
+2025-07-12 19:57:03,918 - app - INFO - Client connected: 3O3k8pZNTlH2WYOyAAAD
+2025-07-12 19:57:03,959 - app - INFO - Client 3O3k8pZNTlH2WYOyAAAD joined session e0222bad-0291-437c-b6fe-de5ca890651f
+2025-07-12 19:57:43,310 - app - INFO - Orders saved: 16 orders
+2025-07-12 19:57:43,310 - app - INFO - Generated 16 experimental orders
+2025-07-12 19:59:11,248 - app - INFO - Metadata configuration saved
+2025-07-12 19:59:14,965 - app - INFO - Condition types saved: ['Helpful', 'Demotivating', 'Control', 'Non-Interactive']
+2025-07-12 19:59:14,975 - app - INFO - Object types saved: ['Brick', 'Rope', 'Paperclip', 'Book']
+2025-07-12 19:59:16,487 - app - INFO - Client disconnected: 3O3k8pZNTlH2WYOyAAAD
+2025-07-12 19:59:16,838 - app - INFO - Created new session: 0506a547-830b-41a9-bdf5-b7b50c0e049a
+2025-07-12 19:59:16,839 - app - INFO - Session 0506a547-830b-41a9-bdf5-b7b50c0e049a: Application started. Ready to configure experiment.
+2025-07-12 19:59:16,886 - app - INFO - Client connected: AtXib1m7lVahR_bPAAAF
+2025-07-12 19:59:16,931 - app - INFO - Client AtXib1m7lVahR_bPAAAF joined session 0506a547-830b-41a9-bdf5-b7b50c0e049a

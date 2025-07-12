@@ -1,8 +1,8 @@
 {
   "object_types": [
     "Brick",
-    "Paperclip",
     "Rope",
+    "Paperclip",
     "Book"
   ]
 }
