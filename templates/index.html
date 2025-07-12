@@ -1,0 +1,555 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VR Experiment Control System</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+        
+        :root {
+            --primary-blue: #2563eb;
+            --secondary-blue: #1e40af;
+            --accent-blue: #3b82f6;
+            --light-blue: #dbeafe;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --green-600: #059669;
+            --green-700: #047857;
+            --orange-600: #ea580c;
+            --red-600: #dc2626;
+            --red-700: #b91c1c;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+        }
+
+        .mono-font {
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .scientific-card {
+            background: rgba(255, 255, 255, 0.98);
+            border: 1px solid #e2e8f0;
+            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+        }
+
+        .data-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1rem;
+        }
+
+        .metric-box {
+            background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
+            border-left: 4px solid var(--primary-blue);
+        }
+
+        .status-active {
+            color: var(--green-600);
+            background-color: #dcfce7;
+            border-color: #bbf7d0;
+        }
+
+        .status-pending {
+            color: var(--gray-600);
+            background-color: var(--gray-100);
+            border-color: var(--gray-200);
+        }
+
+        .status-completed {
+            color: var(--primary-blue);
+            background-color: var(--light-blue);
+            border-color: #93c5fd;
+        }
+
+        .status-warning {
+            color: var(--orange-600);
+            background-color: #fed7aa;
+            border-color: #fdba74;
+        }
+
+        .status-error {
+            color: var(--red-600);
+            background-color: #fecaca;
+            border-color: #fca5a5;
+        }
+
+        .scientific-button {
+            background: linear-gradient(135deg, var(--primary-blue) 0%, var(--secondary-blue) 100%);
+            transition: all 0.2s ease;
+            font-weight: 500;
+            letter-spacing: 0.025em;
+        }
+
+        .scientific-button:hover:not(:disabled) {
+            background: linear-gradient(135deg, var(--secondary-blue) 0%, #1d4ed8 100%);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(37, 99, 235, 0.15);
+        }
+
+        .scientific-button:disabled {
+            background: var(--gray-300);
+            color: var(--gray-600);
+            cursor: not-allowed;
+        }
+
+        .protocol-step {
+            border-left: 3px solid var(--gray-300);
+            transition: border-color 0.3s ease;
+        }
+
+        .protocol-step.active {
+            border-left-color: var(--primary-blue);
+            background-color: #f0f9ff;
+        }
+
+        .protocol-step.completed {
+            border-left-color: var(--green-600);
+            background-color: #f0fdf4;
+        }
+
+        .data-table {
+            border-collapse: collapse;
+            width: 100%;
+        }
+
+        .data-table th {
+            background: var(--gray-50);
+            border-bottom: 2px solid var(--gray-200);
+            font-weight: 600;
+            text-align: left;
+            padding: 0.75rem 1rem;
+            font-size: 0.875rem;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+            color: var(--gray-700);
+        }
+
+        .data-table td {
+            border-bottom: 1px solid var(--gray-200);
+            padding: 0.75rem 1rem;
+            vertical-align: top;
+        }
+
+        .data-table tr:hover {
+            background-color: #f8fafc;
+        }
+
+        .console-output {
+            background: #0a0e14;
+            color: #b3b1ad;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.875rem;
+            line-height: 1.5;
+        }
+
+        .timer-display {
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 600;
+            font-size: 2rem;
+            text-shadow: none;
+        }
+
+        .network-indicator {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            margin-right: 0.5rem;
+        }
+
+        .network-indicator.connected {
+            background-color: var(--green-600);
+            box-shadow: 0 0 0 2px rgba(5, 150, 105, 0.2);
+        }
+
+        .network-indicator.disconnected {
+            background-color: var(--red-600);
+            box-shadow: 0 0 0 2px rgba(220, 38, 38, 0.2);
+        }
+
+        .research-badge {
+            background: linear-gradient(135deg, #1e40af 0%, #1d4ed8 100%);
+            color: white;
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 0.25rem 0.5rem;
+            border-radius: 0.375rem;
+            letter-spacing: 0.05em;
+        }
+
+        @keyframes pulse-subtle {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+
+        .pulse-active {
+            animation: pulse-subtle 2s infinite;
+        }
+
+        .scientific-input:focus {
+            border-color: var(--primary-blue);
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+            outline: none;
+        }
+    </style>
+</head>
+<body class="min-h-screen">
+    <div class="container mx-auto px-6 py-8 max-w-7xl">
+        <!-- Scientific Header -->
+        <header class="scientific-card rounded-lg p-6 mb-8">
+            <div class="flex items-center justify-between">
+                <div>
+                    <h1 class="text-3xl font-bold text-gray-900 mb-2">
+                        VR Experimental Control System
+                    </h1>
+                    <p class="text-gray-600 font-medium">Research Protocol Management Interface</p>
+                    <div class="flex items-center mt-3 space-x-4">
+                        <span class="research-badge">RESEARCH GRADE</span>
+                        <span class="text-sm text-gray-500">Version 2.0.1</span>
+                        <span class="text-sm text-gray-500">Session ID: <span id="session-id" class="mono-font">Loading...</span></span>
+                    </div>
+                </div>
+                <div class="text-right">
+                    <div class="text-gray-500 text-sm mb-1">System Status</div>
+                    <div class="flex items-center">
+                        <span class="network-indicator connected"></span>
+                        <span class="text-green-600 font-medium">OPERATIONAL</span>
+                    </div>
+                    <div class="text-xs text-gray-500 mt-1" id="system-time"></div>
+                </div>
+            </div>
+        </header>
+
+        <!-- System Configuration Panel -->
+        <section class="scientific-card rounded-lg p-6 mb-8">
+            <h2 class="text-xl font-semibold text-gray-800 mb-6 flex items-center">
+                <i class="fas fa-network-wired mr-3 text-blue-600"></i>
+                Network Configuration
+            </h2>
+            
+            <div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
+                <div class="lg:col-span-1">
+                    <label for="udp-ip" class="block text-sm font-medium text-gray-700 mb-2">
+                        Target IP Address
+                    </label>
+                    <input type="text" id="udp-ip" placeholder="192.168.1.255" 
+                           class="scientific-input w-full px-3 py-2 border border-gray-300 rounded-md text-sm font-mono">
+                    <p class="text-xs text-gray-500 mt-1">Broadcast address for UDP transmission</p>
+                </div>
+                
+                <div class="lg:col-span-1">
+                    <label for="udp-port" class="block text-sm font-medium text-gray-700 mb-2">
+                        Communication Port
+                    </label>
+                    <input type="number" id="udp-port" min="1" max="65535" placeholder="1221" 
+                           class="scientific-input w-full px-3 py-2 border border-gray-300 rounded-md text-sm font-mono">
+                    <p class="text-xs text-gray-500 mt-1">UDP port (1-65535)</p>
+                </div>
+                
+                <div class="lg:col-span-1">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Current Target</label>
+                    <div class="bg-gray-50 px-3 py-2 rounded-md border">
+                        <span id="current-network" class="text-sm font-mono text-gray-700">Loading...</span>
+                    </div>
+                    <p class="text-xs text-gray-500 mt-1">Active network endpoint</p>
+                </div>
+                
+                <div class="lg:col-span-1 flex items-end">
+                    <button id="update-network" class="scientific-button text-white px-4 py-2 rounded-md text-sm w-full">
+                        <i class="fas fa-sync mr-2"></i>Update Configuration
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- Experimental Conditions Configuration -->
+        <section class="scientific-card rounded-lg p-6 mb-8">
+            <h2 class="text-xl font-semibold text-gray-800 mb-6 flex items-center justify-between">
+                <div class="flex items-center">
+                    <i class="fas fa-flask mr-3 text-purple-600"></i>
+                    Experimental Conditions Matrix
+                </div>
+                <button id="open-config-modal" class="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-2 rounded-md text-sm">
+                    <i class="fas fa-cogs mr-2"></i>Configure Options
+                </button>
+            </h2>
+            
+            <div class="overflow-x-auto">
+                <table class="data-table w-full">
+                    <thead>
+                        <tr>
+                            <th>Condition ID</th>
+                            <th>Intervention Type</th>
+                            <th>Object Category</th>
+                            <th>Stimulus Object</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="conditions-matrix-body">
+                        <!-- Matrix rows will be dynamically generated here -->
+                    </tbody>
+                </table>
+            </div>
+            
+            <div class="mt-6">
+                <button id="set-params" class="scientific-button text-white px-6 py-2 rounded-md text-sm">
+                    <i class="fas fa-check mr-2"></i>Validate & Initialize Protocol
+                </button>
+            </div>
+        </section>
+
+        <!-- Experimental Protocol Setup -->
+        <section class="scientific-card rounded-lg p-6 mb-8">
+            <h2 class="text-xl font-semibold text-gray-800 mb-6 flex items-center">
+                <i class="fas fa-clipboard-list mr-3 text-green-600"></i>
+                Experimental Protocol
+            </h2>
+            
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+                <div>
+                    <label for="group-id" class="block text-sm font-medium text-gray-700 mb-2">
+                        Participant Group ID
+                    </label>
+                    <input type="text" id="group-id" placeholder="e.g., G001, CTRL-A" 
+                           class="scientific-input w-full px-3 py-2 border border-gray-300 rounded-md text-sm">
+                </div>
+                <div class="lg:col-span-2">
+                    <label for="notes" class="block text-sm font-medium text-gray-700 mb-2">
+                        Research Notes & Observations
+                    </label>
+                    <textarea id="notes" rows="3" placeholder="Record observations, environmental conditions, participant behavior..." 
+                              class="scientific-input w-full px-3 py-2 border border-gray-300 rounded-md text-sm resize-none"></textarea>
+                </div>
+            </div>
+            
+            <button id="save-session" class="scientific-button text-white px-4 py-2 rounded-md text-sm">
+                <i class="fas fa-save mr-2"></i>Archive Session Data
+            </button>
+        </section>
+
+        <!-- Experimental Control Panel -->
+        <section class="scientific-card rounded-lg p-6">
+            <h2 class="text-xl font-semibold text-gray-800 mb-6 flex items-center">
+                <i class="fas fa-play-circle mr-3 text-green-600"></i>
+                Experiment Control Interface
+            </h2>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                <button id="start-condition" class="scientific-button text-white py-3 px-4 rounded-md text-sm disabled:opacity-50" disabled>
+                    <i class="fas fa-play mr-2"></i>Initiate Condition
+                </button>
+                <button id="next-condition" class="scientific-button text-white py-3 px-4 rounded-md text-sm disabled:opacity-50" disabled>
+                    <i class="fas fa-forward mr-2"></i>Progress to Next
+                </button>
+                <button id="force-next" class="bg-orange-600 hover:bg-orange-700 text-white py-3 px-4 rounded-md text-sm disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+                    <i class="fas fa-fast-forward mr-2"></i>Override Timer
+                </button>
+                <button id="reset-experiment" class="bg-red-600 hover:bg-red-700 text-white py-3 px-4 rounded-md text-sm">
+                    <i class="fas fa-redo mr-2"></i>Reset Protocol
+                </button>
+            </div>
+        </section>
+
+        <!-- Real-time Monitoring -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+            <!-- System Status -->
+            <section class="scientific-card rounded-lg p-6">
+                <h2 class="text-xl font-semibold text-gray-800 mb-6 flex items-center">
+                    <i class="fas fa-chart-line mr-3 text-blue-600"></i>
+                    System Status Monitor
+                </h2>
+                
+                <div class="space-y-4">
+                    <div class="metric-box p-4 rounded-lg">
+                        <div class="text-sm font-medium text-gray-600 mb-1">Current Protocol State</div>
+                        <div id="status-display" class="text-lg font-semibold text-gray-800">
+                            Standby - Awaiting Configuration
+                        </div>
+                    </div>
+                    
+                    <div class="metric-box p-4 rounded-lg">
+                        <div class="text-sm font-medium text-gray-600 mb-1">Condition Timer</div>
+                        <div id="countdown-display" class="timer-display text-gray-800">
+                            00:00
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Research Log -->
+            <section class="scientific-card rounded-lg p-6">
+                <h2 class="text-xl font-semibold text-gray-800 mb-6 flex items-center">
+                    <i class="fas fa-terminal mr-3 text-gray-600"></i>
+                    System Event Log
+                </h2>
+                
+                <div id="log-display" class="console-output rounded-lg p-4 h-64 overflow-y-auto">
+                    <!-- System logs will appear here -->
+                </div>
+            </section>
+        </div>
+    </div>
+
+    <!-- Configuration Management Modal -->
+    <div id="config-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden flex items-center justify-center z-50">
+        <div class="scientific-card rounded-lg max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+            <div class="p-6">
+                <div class="flex items-center justify-between mb-6">
+                    <h2 class="text-xl font-semibold text-gray-800 flex items-center">
+                        <i class="fas fa-cogs mr-3 text-indigo-600"></i>
+                        Experiment Configuration Management
+                    </h2>
+                    <button id="close-config-modal" class="text-gray-500 hover:text-gray-700 text-xl">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                
+                <!-- Validation Message -->
+                <div id="config-validation-message" class="hidden mb-4 p-3 rounded-md">
+                    <div class="flex items-center">
+                        <i class="fas fa-exclamation-triangle mr-2"></i>
+                        <span id="config-validation-text"></span>
+                    </div>
+                </div>
+                
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-6">
+                    <!-- Condition Types Configuration -->
+                    <div class="border rounded-lg p-4 bg-gray-50">
+                        <h3 class="text-lg font-medium text-gray-700 mb-4 flex items-center">
+                            <i class="fas fa-tags mr-2 text-purple-600"></i>
+                            Intervention Types
+                            <span id="condition-count" class="ml-2 text-sm text-gray-500 bg-gray-200 px-2 py-1 rounded-full">(0)</span>
+                        </h3>
+                        
+                        <div class="space-y-3">
+                            <div id="condition-types-list" class="space-y-2">
+                                <!-- Condition types will be populated here -->
+                            </div>
+                            
+                            <div class="flex gap-2">
+                                <input type="text" id="new-condition-type" placeholder="Add new intervention type..." 
+                                       class="scientific-input flex-1 px-3 py-2 border border-gray-300 rounded-md text-sm">
+                                <button id="add-condition-type" class="scientific-button text-white px-4 py-2 rounded-md text-sm">
+                                    <i class="fas fa-plus mr-1"></i>Add
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Object Types Configuration -->
+                    <div class="border rounded-lg p-4 bg-gray-50">
+                        <h3 class="text-lg font-medium text-gray-700 mb-4 flex items-center">
+                            <i class="fas fa-cube mr-2 text-green-600"></i>
+                            Stimulus Objects
+                            <span id="object-count" class="ml-2 text-sm text-gray-500 bg-gray-200 px-2 py-1 rounded-full">(0)</span>
+                        </h3>
+                        
+                        <div class="space-y-3">
+                            <div id="object-types-list" class="space-y-2">
+                                <!-- Object types will be populated here -->
+                            </div>
+                            
+                            <div class="flex gap-2">
+                                <input type="text" id="new-object-type" placeholder="Add new stimulus object..." 
+                                       class="scientific-input flex-1 px-3 py-2 border border-gray-300 rounded-md text-sm">
+                                <button id="add-object-type" class="scientific-button text-white px-4 py-2 rounded-md text-sm">
+                                    <i class="fas fa-plus mr-1"></i>Add
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="flex justify-end space-x-4">
+                    <button id="cancel-config-changes" class="bg-gray-500 hover:bg-gray-600 text-white px-6 py-2 rounded-md text-sm">
+                        <i class="fas fa-times mr-2"></i>Cancel
+                    </button>
+                    <button id="save-all-config" class="scientific-button text-white px-6 py-2 rounded-md text-sm">
+                        <i class="fas fa-save mr-2"></i>Save Changes
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Loading Modal -->
+    <div id="loading-overlay" class="fixed inset-0 bg-black bg-opacity-50 hidden flex items-center justify-center z-50">
+        <div class="scientific-card rounded-lg p-8 max-w-sm w-full mx-4">
+            <div class="text-center">
+                <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                <h3 class="text-lg font-semibold text-gray-800 mb-2">Processing...</h3>
+                <p id="loading-text" class="text-gray-600">Please wait</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Information Modal -->
+    <div id="modal" class="fixed inset-0 bg-black bg-opacity-50 hidden flex items-center justify-center z-50">
+        <div class="scientific-card rounded-lg p-8 max-w-md w-full mx-4">
+            <div class="flex items-center mb-6">
+                <i id="modal-icon" class="text-3xl mr-4"></i>
+                <h3 id="modal-title" class="text-xl font-semibold"></h3>
+            </div>
+            <p id="modal-message" class="text-gray-600 mb-6 leading-relaxed"></p>
+            <div class="flex justify-end">
+                <button id="modal-close" class="scientific-button text-white py-2 px-4 rounded-md">
+                    Acknowledge
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Confirmation Modal -->
+    <div id="confirm-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden flex items-center justify-center z-50">
+        <div class="scientific-card rounded-lg p-8 max-w-md w-full mx-4">
+            <div class="flex items-center mb-6">
+                <i class="fas fa-exclamation-triangle text-orange-600 text-3xl mr-4"></i>
+                <h3 id="confirm-title" class="text-xl font-semibold">Confirm Action</h3>
+            </div>
+            <p id="confirm-message" class="text-gray-600 mb-6 leading-relaxed"></p>
+            <div class="flex justify-end space-x-4">
+                <button id="confirm-cancel" class="bg-gray-500 hover:bg-gray-600 text-white py-2 px-4 rounded-md">
+                    Cancel
+                </button>
+                <button id="confirm-ok" class="bg-red-600 hover:bg-red-700 text-white py-2 px-4 rounded-md">
+                    Confirm
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/script.js"></script>
+    
+    <script>
+        // Update system time
+        function updateSystemTime() {
+            const now = new Date();
+            document.getElementById('system-time').textContent = 
+                now.toLocaleString('en-US', { 
+                    year: 'numeric', 
+                    month: '2-digit', 
+                    day: '2-digit', 
+                    hour: '2-digit', 
+                    minute: '2-digit', 
+                    second: '2-digit' 
+                });
+        }
+        
+        setInterval(updateSystemTime, 1000);
+        updateSystemTime();
+    </script>
+</body>
+</html> 
