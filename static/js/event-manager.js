@@ -216,14 +216,28 @@ class EventManager {
     
     setupExperimentalControlEvents() {
         // Experimental controls
+        const practiceTrialBtn = document.getElementById('practice-trial');
         const startCondition = document.getElementById('start-condition');
+        const restartCondition = document.getElementById('restart-condition');
         const nextCondition = document.getElementById('next-condition');
         const forceNext = document.getElementById('force-next');
         const resetExperiment = document.getElementById('reset-experiment');
         
+        if (practiceTrialBtn) {
+            practiceTrialBtn.addEventListener('click', () => {
+                this.app.startPracticeTrial();
+            });
+        }
+        
         if (startCondition) {
             startCondition.addEventListener('click', () => {
                 this.app.startCondition();
+            });
+        }
+        
+        if (restartCondition) {
+            restartCondition.addEventListener('click', () => {
+                this.app.restartCondition();
             });
         }
         

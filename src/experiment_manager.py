@@ -297,10 +297,11 @@ class VRExperimentManager:
             'experiment_completed': False,  # Add completion flag
             'condition_start_time': None,
             'countdown_active': False,
+            'practice_trial_active': False,
+            'practice_start_time': None,
             'logs': [],
             'udp_ip': self.default_udp_ip,
             'udp_port': self.default_udp_port,
-            'condition_overridden': False,
             'selected_order_id': None,
             'order_marked_used': False
         }

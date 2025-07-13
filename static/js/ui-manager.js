@@ -182,6 +182,120 @@ class UIManager {
         });
     }
     
+    updateExperimentTimeline(data) {
+        const timelineContainer = document.getElementById('experiment-timeline');
+        if (!timelineContainer) return;
+        
+        const sequence = data.protocol_sequence || [];
+        const currentIndex = data.current_condition_index || 0;
+        const countdownActive = data.countdown_active || false;
+        const experimentCompleted = data.experiment_completed || false;
+        
+        // Clear existing timeline
+        timelineContainer.innerHTML = '';
+        
+        if (sequence.length === 0) {
+            timelineContainer.innerHTML = `
+                <div class="text-center text-gray-500 py-8">
+                    <i class="fas fa-cog mr-2"></i>
+                    Configure experiment to see timeline
+                </div>
+            `;
+            return;
+        }
+        
+        // Create timeline header
+        const timelineHeader = document.createElement('div');
+        timelineHeader.className = 'text-lg font-semibold text-gray-800 mb-4 flex items-center';
+        timelineHeader.innerHTML = `
+            <i class="fas fa-clock mr-2 text-blue-600"></i>
+            Experiment Progress Timeline
+        `;
+        timelineContainer.appendChild(timelineHeader);
+        
+        // Create timeline container
+        const timeline = document.createElement('div');
+        timeline.className = 'relative';
+        
+        // Create timeline steps for each condition (no practice trial display)
+        sequence.forEach((condition, index) => {
+            const step = document.createElement('div');
+            step.className = 'timeline-step';
+            
+            // Determine step status
+            let statusClass = 'pending';
+            let statusIcon = 'fas fa-circle';
+            let statusText = 'Pending';
+            
+            if (index < currentIndex) {
+                statusClass = 'completed';
+                statusIcon = 'fas fa-check-circle';
+                statusText = 'Completed';
+            } else if (index === currentIndex && countdownActive) {
+                statusClass = 'active';
+                statusIcon = 'fas fa-play-circle';
+                statusText = 'Active';
+            } else if (index === currentIndex && !countdownActive) {
+                statusClass = 'ready';
+                statusIcon = 'fas fa-circle';
+                statusText = 'Ready';
+            }
+            
+            // If experiment is completed, mark all as completed
+            if (experimentCompleted && index <= currentIndex) {
+                statusClass = 'completed';
+                statusIcon = 'fas fa-check-circle';
+                statusText = 'Completed';
+            }
+            
+            step.innerHTML = `
+                <div class="timeline-connector ${index === 0 ? 'first' : ''}"></div>
+                <div class="timeline-node ${statusClass}">
+                    <div class="timeline-icon">
+                        <i class="${statusIcon}"></i>
+                    </div>
+                </div>
+                <div class="timeline-content">
+                    <div class="timeline-title">
+                        Condition ${index + 1}
+                        <span class="timeline-status">${statusText}</span>
+                    </div>
+                    <div class="timeline-description">
+                        ${condition.condition_type} (${condition.object_type})
+                    </div>
+                </div>
+            `;
+            
+            timeline.appendChild(step);
+        });
+        
+        // Add completion indicator if experiment is finished
+        if (experimentCompleted) {
+            const completionStep = document.createElement('div');
+            completionStep.className = 'timeline-step completion';
+            completionStep.innerHTML = `
+                <div class="timeline-connector"></div>
+                <div class="timeline-node completed">
+                    <div class="timeline-icon">
+                        <i class="fas fa-flag-checkered"></i>
+                    </div>
+                </div>
+                <div class="timeline-content">
+                    <div class="timeline-title">
+                        Experiment Complete
+                        <span class="timeline-status">Finished</span>
+                    </div>
+                    <div class="timeline-description">
+                        All conditions have been completed successfully
+                    </div>
+                </div>
+            `;
+            timeline.appendChild(completionStep);
+        }
+        
+        timelineContainer.appendChild(timeline);
+    }
+    
     updateNetworkDisplay() {
         const networkDisplay = document.getElementById('current-network');
         if (networkDisplay) {
@@ -302,7 +416,9 @@ class UIManager {
         }
         
         // Reset control buttons
+        this.disableControl('practice-trial');
         this.disableControl('start-condition');
+        this.disableControl('restart-condition');
         this.disableControl('next-condition');
         this.disableControl('force-next');
         

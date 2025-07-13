@@ -63,39 +63,11 @@ class WebSocketManager {
             this.app.uiManager.updateConditionTimer(data.countdown_text);
         }
         
-        // Handle control button states
-        if (data.enable_next) {
-            this.app.uiManager.enableControl('next-condition');
-            this.app.uiManager.highlightControl('next-condition');
-        }
+        // Reset all button states first to avoid conflicts
+        this.resetAllButtonStates();
         
-        if (data.enable_start) {
-            this.app.uiManager.enableControl('start-condition');
-            this.app.uiManager.highlightControl('start-condition');
-        }
-        
-        if (data.disable_start) {
-            this.app.uiManager.disableControl('start-condition');
-        }
-        
-        if (data.enable_force_next) {
-            this.app.uiManager.enableControl('force-next');
-        }
-        
-        if (data.disable_force_next) {
-            this.app.uiManager.disableControl('force-next');
-        }
-        
-        if (data.disable_next) {
-            this.app.uiManager.disableControl('next-condition');
-        }
-        
-        // Handle experiment completion
-        if (data.experiment_completed) {
-            this.app.uiManager.disableControl('next-condition');
-            this.app.uiManager.disableControl('force-next');
-            this.app.uiManager.updateConditionTimer('Protocol Complete');
-        }
+        // Apply new button states based on comprehensive state management
+        this.applyButtonStates(data);
         
         // Update condition status pills
         if (data.protocol_sequence && data.current_condition_index !== undefined) {
@@ -106,9 +78,89 @@ class WebSocketManager {
             );
         }
         
+        // Update experiment timeline
+        this.app.uiManager.updateExperimentTimeline(data);
+        
         // Handle interface reset
         if (data.reset_interface) {
             this.app.uiManager.resetInterfaceState();
+        }
+    }
+    
+    resetAllButtonStates() {
+        // Reset all experiment control buttons to disabled state
+        const buttons = ['practice-trial', 'start-condition', 'restart-condition', 'next-condition', 'force-next'];
+        buttons.forEach(buttonId => {
+            this.app.uiManager.disableControl(buttonId);
+        });
+    }
+    
+    applyButtonStates(data) {
+        // Determine button states based on experiment state
+        const experimentConfigured = data.experiment_configured || false;
+        const experimentCompleted = data.experiment_completed || false;
+        const practiceTrialActive = data.practice_trial || false;
+        const countdownActive = data.countdown_active || false;
+        const enableStart = data.enable_start || false;
+        const enableNext = data.enable_next || false;
+        
+        if (experimentCompleted) {
+            // Experiment completed - no buttons available except reset
+            this.app.uiManager.disableControl('practice-trial');
+            this.app.uiManager.disableControl('start-condition');
+            this.app.uiManager.disableControl('restart-condition');
+            this.app.uiManager.disableControl('next-condition');
+            this.app.uiManager.disableControl('force-next');
+            
+        } else if (!experimentConfigured) {
+            // Not configured - no buttons available except reset
+            this.app.uiManager.disableControl('practice-trial');
+            this.app.uiManager.disableControl('start-condition');
+            this.app.uiManager.disableControl('restart-condition');
+            this.app.uiManager.disableControl('next-condition');
+            this.app.uiManager.disableControl('force-next');
+            
+        } else if (practiceTrialActive && countdownActive) {
+            // Practice trial is actively running
+            this.app.uiManager.disableControl('practice-trial');
+            this.app.uiManager.disableControl('start-condition');
+            this.app.uiManager.disableControl('next-condition');
+            this.app.uiManager.enableControl('restart-condition');
+            this.app.uiManager.enableControl('force-next');
+            
+        } else if (countdownActive && !practiceTrialActive) {
+            // Regular condition is actively running
+            this.app.uiManager.disableControl('practice-trial');
+            this.app.uiManager.disableControl('start-condition');
+            this.app.uiManager.disableControl('next-condition');
+            this.app.uiManager.enableControl('restart-condition');
+            this.app.uiManager.enableControl('force-next');
+            
+        } else if (enableNext) {
+            // A condition just finished - ready to move to next condition
+            this.app.uiManager.disableControl('practice-trial');
+            this.app.uiManager.disableControl('start-condition');
+            this.app.uiManager.disableControl('restart-condition');
+            this.app.uiManager.disableControl('force-next');
+            this.app.uiManager.enableControl('next-condition');
+            this.app.uiManager.highlightControl('next-condition');
+            
+        } else if (enableStart) {
+            // Ready to start a specific condition (first condition or moved to next)
+            this.app.uiManager.enableControl('practice-trial');
+            this.app.uiManager.enableControl('start-condition');
+            this.app.uiManager.disableControl('restart-condition');
+            this.app.uiManager.disableControl('next-condition');
+            this.app.uiManager.disableControl('force-next');
+            this.app.uiManager.highlightControl('start-condition');
+            
+        } else {
+            // Default configured state - can do practice trial or start first condition
+            this.app.uiManager.enableControl('practice-trial');
+            this.app.uiManager.enableControl('start-condition');
+            this.app.uiManager.disableControl('restart-condition');
+            this.app.uiManager.disableControl('next-condition');
+            this.app.uiManager.disableControl('force-next');
         }
     }
     

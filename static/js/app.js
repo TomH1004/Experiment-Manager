@@ -300,6 +300,58 @@ class VRExperimentManager {
         }
     }
     
+    async startPracticeTrial() {
+        try {
+            this.uiManager.showProcessingState('Starting practice trial...');
+            
+            const response = await fetch(`/api/session/${this.sessionId}/practice`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            });
+            
+            const data = await response.json();
+            if (data.success) {
+                console.log('Practice trial started:', data.condition_name);
+            } else {
+                this.uiManager.showSystemAlert('Practice Trial Error', data.message, 'error');
+            }
+        } catch (error) {
+            console.error('Error starting practice trial:', error);
+            this.uiManager.showSystemAlert('System Error', 
+                'Failed to start practice trial.', 'error');
+        } finally {
+            this.uiManager.hideProcessingState();
+        }
+    }
+    
+    async restartCondition() {
+        try {
+            this.uiManager.showProcessingState('Restarting current condition...');
+            
+            const response = await fetch(`/api/session/${this.sessionId}/restart`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            });
+            
+            const data = await response.json();
+            if (data.success) {
+                console.log('Condition restarted:', data.condition_name);
+            } else {
+                this.uiManager.showSystemAlert('Restart Error', data.message, 'error');
+            }
+        } catch (error) {
+            console.error('Error restarting condition:', error);
+            this.uiManager.showSystemAlert('System Error', 
+                'Failed to restart condition.', 'error');
+        } finally {
+            this.uiManager.hideProcessingState();
+        }
+    }
+    
     async nextCondition() {
         try {
             this.uiManager.showProcessingState('Progressing to next condition...');

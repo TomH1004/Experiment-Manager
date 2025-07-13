@@ -122,60 +122,103 @@ class TimerManager:
         }
         
         if self.manager.send_udp_message(session_id, message_data):
-            # Check if this was the last condition
-            is_last_condition = session_data['current_condition_index'] >= len(session_data['experiment_sequence']) - 1
-            
-            if is_last_condition:
-                # This was the last condition - mark experiment as completed
-                self.manager.complete_experiment(session_id)
+            # Check if this was a practice trial
+            if session_data.get('practice_trial_active', False):
+                # Practice trial finished
+                session_data['practice_trial_active'] = False
+                session_data['practice_start_time'] = None
                 
-                # Emit completion status
                 self.socketio.emit('status_update', {
-                    'status': 'Final condition completed - Experiment finished!',
-                    'countdown_text': 'Experiment Complete',
-                    'enable_next': False,
-                    'disable_start': True,
-                    'disable_next': True,
-                    'disable_force_next': True,
+                    'status': 'Practice trial completed - Ready to start experiment',
+                    'countdown_text': 'Practice Complete',
                     'protocol_sequence': session_data['experiment_sequence'],
-                    'current_condition_index': session_data['current_condition_index'],
-                    'experiment_completed': True,
-                    'countdown_active': False
+                    'current_condition_index': 0,
+                    'experiment_completed': False,
+                    'experiment_configured': True,
+                    'practice_trial': False,
+                    'countdown_active': False,
+                    'enable_start': True,
+                    'enable_practice': True
                 }, room=session_id)
             else:
-                # Not the last condition - enable next button
-                self.socketio.emit('status_update', {
-                    'status': 'Block finished - All objects disabled. Ready for next condition.',
-                    'countdown_text': 'TIME EXPIRED - Block Finished',
-                    'enable_next': True,
-                    'disable_force_next': True,
-                    'protocol_sequence': session_data['experiment_sequence'],
-                    'current_condition_index': session_data['current_condition_index'],
-                    'experiment_completed': session_data.get('experiment_completed', False),
-                    'countdown_active': False
-                }, room=session_id)
+                # Regular condition finished
+                # Check if this was the last condition
+                current_index = session_data['current_condition_index']
+                sequence_length = len(session_data['experiment_sequence'])
+                is_last_condition = current_index >= sequence_length - 1
+                
+                self.manager.log_message(session_id, f"Condition {current_index + 1} finished. Current index: {current_index}, Sequence length: {sequence_length}, Is last: {is_last_condition}")
+                
+                if is_last_condition:
+                    # This was the last condition - mark experiment as completed
+                    self.manager.complete_experiment(session_id)
+                    self.manager.log_message(session_id, "Final condition completed - marking experiment as finished")
+                    
+                    # Emit completion status
+                    self.socketio.emit('status_update', {
+                        'status': 'Final condition completed - Experiment finished!',
+                        'countdown_text': 'Experiment Complete',
+                        'protocol_sequence': session_data['experiment_sequence'],
+                        'current_condition_index': session_data['current_condition_index'],
+                        'experiment_completed': True,
+                        'experiment_configured': True,
+                        'practice_trial': False,
+                        'countdown_active': False
+                    }, room=session_id)
+                else:
+                    # Not the last condition - enable next button
+                    self.manager.log_message(session_id, f"Condition {current_index + 1} completed - ready for next condition")
+                    self.socketio.emit('status_update', {
+                        'status': 'Block finished - All objects disabled. Ready for next condition.',
+                        'countdown_text': 'TIME EXPIRED - Block Finished',
+                        'protocol_sequence': session_data['experiment_sequence'],
+                        'current_condition_index': session_data['current_condition_index'],
+                        'experiment_completed': session_data.get('experiment_completed', False),
+                        'experiment_configured': True,
+                        'practice_trial': False,
+                        'countdown_active': False,
+                        'enable_next': True
+                    }, room=session_id)
 
 # Initialize timer manager
 timer_manager = TimerManager(manager, socketio)
 
 # Override the manager's timer methods to use our enhanced timer
-def enhanced_start_countdown_timer(session_id):
+def enhanced_start_countdown_timer(session_id, practice_mode=False):
     """Enhanced start countdown timer with socketio integration"""
     session_data = manager.get_session(session_id)
     session_data['condition_start_time'] = time.time()
     session_data['countdown_active'] = True
     
-    manager.log_message(session_id, "5-minute countdown timer started for current condition")
-    
-    # Emit status update with protocol sequence
-    socketio.emit('status_update', {
-        'status': f"Condition {session_data['current_condition_index'] + 1} Active - Timer Started",
-        'countdown_text': 'Time Remaining: 05:00',
-        'protocol_sequence': session_data['experiment_sequence'],
-        'current_condition_index': session_data['current_condition_index'],
-        'experiment_completed': session_data.get('experiment_completed', False),
-        'countdown_active': True
-    }, room=session_id)
+    if practice_mode:
+        session_data['practice_start_time'] = time.time()
+        manager.log_message(session_id, "5-minute countdown timer started for practice trial")
+        
+        # Emit status update for practice trial
+        socketio.emit('status_update', {
+            'status': 'Practice Trial Active - Timer Started',
+            'countdown_text': 'Practice Time: 05:00',
+            'protocol_sequence': session_data['experiment_sequence'],
+            'current_condition_index': -1,
+            'experiment_completed': False,
+            'experiment_configured': True,
+            'practice_trial': True,
+            'countdown_active': True
+        }, room=session_id)
+    else:
+        manager.log_message(session_id, "5-minute countdown timer started for current condition")
+        
+        # Emit status update with protocol sequence
+        socketio.emit('status_update', {
+            'status': f"Condition {session_data['current_condition_index'] + 1} Active - Timer Started",
+            'countdown_text': 'Time Remaining: 05:00',
+            'protocol_sequence': session_data['experiment_sequence'],
+            'current_condition_index': session_data['current_condition_index'],
+            'experiment_completed': session_data.get('experiment_completed', False),
+            'experiment_configured': True,
+            'practice_trial': False,
+            'countdown_active': True
+        }, room=session_id)
     
     # Start timer loop
     timer_manager.start_timer_loop()
