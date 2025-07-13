@@ -27,3 +27,73 @@
 2025-07-12 19:59:16,839 - app - INFO - Session 0506a547-830b-41a9-bdf5-b7b50c0e049a: Application started. Ready to configure experiment.
 2025-07-12 19:59:16,886 - app - INFO - Client connected: AtXib1m7lVahR_bPAAAF
 2025-07-12 19:59:16,931 - app - INFO - Client AtXib1m7lVahR_bPAAAF joined session 0506a547-830b-41a9-bdf5-b7b50c0e049a
+2025-07-12 20:16:46,888 - app - INFO - Metadata configuration saved
+2025-07-12 20:16:46,888 - app - INFO - VR Experiment Manager initialized
+2025-07-12 20:16:46,900 - app - INFO - ==================================================
+2025-07-12 20:16:46,900 - app - INFO - VR Experiment Manager Starting Up
+2025-07-12 20:16:46,900 - app - INFO - ==================================================
+2025-07-12 20:16:46,900 - app - INFO - Starting server on http://localhost:5000
+2025-07-12 20:16:48,901 - app - INFO - Opening browser to http://localhost:5000
+2025-07-12 20:16:49,954 - app - INFO - Created new session: 4a910e59-8ead-418b-8a0c-aca52886438e
+2025-07-12 20:16:49,955 - app - INFO - Session 4a910e59-8ead-418b-8a0c-aca52886438e: Application started. Ready to configure experiment.
+2025-07-12 20:16:50,024 - app - INFO - Client connected: Qcz-cUT0jCLsS6QWAAAB
+2025-07-12 20:16:50,055 - app - INFO - Client Qcz-cUT0jCLsS6QWAAAB joined session 4a910e59-8ead-418b-8a0c-aca52886438e
+2025-07-12 20:18:14,517 - app - INFO - Metadata configuration saved
+2025-07-12 20:18:14,517 - app - INFO - Condition types saved: ['Helpful', 'Demotivating', 'Control', 'Non-Interactive']
+2025-07-12 20:18:14,518 - app - INFO - Object types saved: ['Brick', 'Paperclip', 'Rope', 'Book']
+2025-07-12 20:18:16,024 - app - INFO - Client disconnected: Qcz-cUT0jCLsS6QWAAAB
+2025-07-12 20:18:16,377 - app - INFO - Created new session: 2886bebc-ed1f-4c95-a73a-71a39bfb6fdf
+2025-07-12 20:18:16,377 - app - INFO - Session 2886bebc-ed1f-4c95-a73a-71a39bfb6fdf: Application started. Ready to configure experiment.
+2025-07-12 20:18:16,424 - app - INFO - Client connected: ZfON8yL_RLVjEIiCAAAD
+2025-07-12 20:18:16,464 - app - INFO - Client ZfON8yL_RLVjEIiCAAAD joined session 2886bebc-ed1f-4c95-a73a-71a39bfb6fdf
+2025-07-12 20:18:21,259 - app - INFO - Orders saved: 16 orders
+2025-07-12 20:18:21,260 - app - INFO - Generated 16 experimental orders
+2025-07-12 20:18:38,060 - app - INFO - Orders saved: 16 orders
+2025-07-12 20:18:38,061 - app - INFO - Order ORD-0003 marked as used by session 2886bebc-ed1f-4c95-a73a-71a39bfb6fdf
+2025-07-12 20:18:43,977 - app - INFO - Session 2886bebc-ed1f-4c95-a73a-71a39bfb6fdf: Experiment parameters configured successfully
+2025-07-12 20:18:46,875 - app - INFO - Session 2886bebc-ed1f-4c95-a73a-71a39bfb6fdf: Sent UDP message to 10.195.83.255:1221: {"command": "start_condition", "condition_type": "demotivating", "object_type": "brick", "condition_index": 0}
+2025-07-12 20:18:46,875 - app - INFO - Session 2886bebc-ed1f-4c95-a73a-71a39bfb6fdf: 5-minute countdown timer started for current condition
+2025-07-12 20:18:53,008 - app - INFO - Session 2886bebc-ed1f-4c95-a73a-71a39bfb6fdf: Timer manually overridden by supervisor
+2025-07-12 20:18:53,009 - app - INFO - Session 2886bebc-ed1f-4c95-a73a-71a39bfb6fdf: Sent UDP message to 10.195.83.255:1221: {"command": "disable_all", "reason": "timer_overridden"}
+2025-07-12 20:18:54,634 - app - INFO - Session 2886bebc-ed1f-4c95-a73a-71a39bfb6fdf: Sent UDP message to 10.195.83.255:1221: {"command": "next_condition", "condition_type": "control", "object_type": "paperclip", "condition_index": 1}
+2025-07-12 20:18:54,634 - app - INFO - Session 2886bebc-ed1f-4c95-a73a-71a39bfb6fdf: 5-minute countdown timer started for current condition
+2025-07-12 20:18:58,577 - app - INFO - Session 2886bebc-ed1f-4c95-a73a-71a39bfb6fdf: Timer manually overridden by supervisor
+2025-07-12 20:18:58,578 - app - INFO - Session 2886bebc-ed1f-4c95-a73a-71a39bfb6fdf: Sent UDP message to 10.195.83.255:1221: {"command": "disable_all", "reason": "timer_overridden"}
+2025-07-12 20:18:59,815 - app - INFO - Session 2886bebc-ed1f-4c95-a73a-71a39bfb6fdf: Sent UDP message to 10.195.83.255:1221: {"command": "next_condition", "condition_type": "non-interactive", "object_type": "rope", "condition_index": 2}
+2025-07-12 20:18:59,816 - app - INFO - Session 2886bebc-ed1f-4c95-a73a-71a39bfb6fdf: 5-minute countdown timer started for current condition
+2025-07-12 20:19:02,806 - app - INFO - Session 2886bebc-ed1f-4c95-a73a-71a39bfb6fdf: Timer manually overridden by supervisor
+2025-07-12 20:19:02,807 - app - INFO - Session 2886bebc-ed1f-4c95-a73a-71a39bfb6fdf: Sent UDP message to 10.195.83.255:1221: {"command": "disable_all", "reason": "timer_overridden"}
+2025-07-12 20:19:03,552 - app - INFO - Session 2886bebc-ed1f-4c95-a73a-71a39bfb6fdf: Sent UDP message to 10.195.83.255:1221: {"command": "next_condition", "condition_type": "helpful", "object_type": "book", "condition_index": 3}
+2025-07-12 20:19:03,552 - app - INFO - Session 2886bebc-ed1f-4c95-a73a-71a39bfb6fdf: 5-minute countdown timer started for current condition
+2025-07-12 20:19:07,674 - app - INFO - Session 2886bebc-ed1f-4c95-a73a-71a39bfb6fdf: Timer manually overridden by supervisor
+2025-07-12 20:19:07,675 - app - INFO - Session 2886bebc-ed1f-4c95-a73a-71a39bfb6fdf: Sent UDP message to 10.195.83.255:1221: {"command": "disable_all", "reason": "timer_overridden"}
+2025-07-12 20:19:09,591 - app - INFO - Session 2886bebc-ed1f-4c95-a73a-71a39bfb6fdf: Sent UDP message to 10.195.83.255:1221: {"command": "next_condition", "condition_type": "helpful", "object_type": "book", "condition_index": 3}
+2025-07-12 20:19:09,591 - app - INFO - Session 2886bebc-ed1f-4c95-a73a-71a39bfb6fdf: 5-minute countdown timer started for current condition
+2025-07-12 20:19:12,962 - app - INFO - Session 2886bebc-ed1f-4c95-a73a-71a39bfb6fdf: Timer manually overridden by supervisor
+2025-07-12 20:19:12,963 - app - INFO - Session 2886bebc-ed1f-4c95-a73a-71a39bfb6fdf: Sent UDP message to 10.195.83.255:1221: {"command": "disable_all", "reason": "timer_overridden"}
+2025-07-12 20:19:13,943 - app - INFO - Session 2886bebc-ed1f-4c95-a73a-71a39bfb6fdf: Sent UDP message to 10.195.83.255:1221: {"command": "next_condition", "condition_type": "helpful", "object_type": "book", "condition_index": 3}
+2025-07-12 20:19:13,944 - app - INFO - Session 2886bebc-ed1f-4c95-a73a-71a39bfb6fdf: 5-minute countdown timer started for current condition
+2025-07-12 20:19:16,612 - app - INFO - Session 2886bebc-ed1f-4c95-a73a-71a39bfb6fdf: Timer manually overridden by supervisor
+2025-07-12 20:19:16,613 - app - INFO - Session 2886bebc-ed1f-4c95-a73a-71a39bfb6fdf: Sent UDP message to 10.195.83.255:1221: {"command": "disable_all", "reason": "timer_overridden"}
+2025-07-12 20:19:27,748 - app - INFO - Session 2886bebc-ed1f-4c95-a73a-71a39bfb6fdf: Session data saved to: VR_Experiment_ORD-0003_20250712_201927.txt
+2025-07-12 20:19:27,748 - app - INFO - Session 2886bebc-ed1f-4c95-a73a-71a39bfb6fdf: Data saved to VR_Experiment_ORD-0003_20250712_201927.txt
+2025-07-12 20:30:37,400 - app - INFO - ==================================================
+2025-07-12 20:30:37,401 - app - INFO - VR Experiment Manager Starting Up
+2025-07-12 20:30:37,401 - app - INFO - ==================================================
+2025-07-12 20:30:37,402 - app - INFO - Starting server on http://localhost:5000
+2025-07-12 20:30:39,403 - app - INFO - Opening browser to http://localhost:5000
+2025-07-12 20:30:42,395 - app - INFO - Client connected: cLmieb9CKtsfjR9OAAAB
+2025-07-12 20:30:42,479 - app - INFO - Client joined session: 5ea6bf5a-9041-49c4-a31c-f26e41881617
+2025-07-12 20:42:40,197 - app - INFO - ==================================================
+2025-07-12 20:42:40,198 - app - INFO - VR Experiment Manager Starting Up
+2025-07-12 20:42:40,198 - app - INFO - ==================================================
+2025-07-12 20:42:40,200 - app - INFO - Starting server on http://localhost:5000
+2025-07-12 20:42:42,200 - app - INFO - Opening browser to http://localhost:5000
+2025-07-12 20:42:45,410 - app - INFO - Client connected: XehLEU76d2Z9fRuaAAAB
+2025-07-12 20:42:45,491 - app - INFO - Client joined session: b65838f4-91c0-440a-9cbb-6ce1e9faede4
+2025-07-12 20:43:51,742 - app - INFO - Client disconnected: XehLEU76d2Z9fRuaAAAB
+2025-07-12 20:43:52,940 - app - INFO - Client connected: RiisyRdJOH8rCDTiAAAD
+2025-07-12 20:43:52,998 - app - INFO - Client joined session: 3b7ac691-3fdb-4dbd-b8c4-b7e2448c3007
+2025-07-12 20:45:09,390 - app - INFO - Client disconnected: RiisyRdJOH8rCDTiAAAD
+2025-07-12 20:45:10,120 - app - INFO - Client connected: B5yIslysTOTSCpyqAAAF
+2025-07-12 20:45:10,147 - app - INFO - Client joined session: 3b7ac691-3fdb-4dbd-b8c4-b7e2448c3007
