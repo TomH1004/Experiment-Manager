@@ -390,4 +390,45 @@ def create_api_routes(manager, socketio):
         except Exception as e:
             return jsonify({'success': False, 'message': f'Failed to get session status: {str(e)}'})
     
+    @api.route('/api/system/reset', methods=['POST'])
+    def reset_system():
+        """Reset the entire experiment system - delete all configuration files"""
+        try:
+            import shutil
+            import os
+            
+            # Directories to clean
+            config_dir = 'config'
+            data_dir = 'data'
+            
+            # Remove all config files except create directories
+            if os.path.exists(config_dir):
+                shutil.rmtree(config_dir)
+            os.makedirs(config_dir, exist_ok=True)
+            
+            # Remove all data files except create directories  
+            if os.path.exists(data_dir):
+                shutil.rmtree(data_dir)
+            os.makedirs(data_dir, exist_ok=True)
+            
+            # Clear all active sessions
+            manager.sessions.clear()
+            
+            # Reload empty configurations
+            manager.reload_configurations()
+            
+            logger.info("System reset completed - all configurations cleared")
+            
+            return jsonify({
+                'success': True,
+                'message': 'System reset completed. All configurations have been cleared.'
+            })
+            
+        except Exception as e:
+            logger.error(f"Error during system reset: {str(e)}")
+            return jsonify({
+                'success': False,
+                'message': f'Failed to reset system: {str(e)}'
+            }), 500
+    
     return api 

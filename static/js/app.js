@@ -25,6 +25,7 @@ class VRExperimentManager {
         this.uiManager = new UIManager(this);
         this.websocketManager = new WebSocketManager(this);
         this.eventManager = new EventManager(this);
+        this.settingsManager = new SettingsManager(this);
         
         // Initialize application
         this.init();
