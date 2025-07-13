@@ -12,14 +12,14 @@ import os
 import time
 import threading
 
-# Import our modules
-from experiment_manager import VRExperimentManager
-from api_routes import create_api_routes
-from config_routes import create_config_routes
-from order_routes import create_order_routes
+# Import application modules
+from .experiment_manager import VRExperimentManager
+from .api_routes import create_api_routes
+from .config_routes import create_config_routes
+from .order_routes import create_order_routes
 
 # Initialize Flask app
-app = Flask(__name__)
+app = Flask(__name__, template_folder='../static', static_folder='../static')
 app.config['SECRET_KEY'] = 'your-secret-key-here'
 socketio = SocketIO(app, cors_allowed_origins="*")
 

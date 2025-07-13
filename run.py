@@ -9,7 +9,7 @@ import sys
 import time
 import webbrowser
 import threading
-from app import app, socketio, logger
+from src.app import app, socketio, logger
 
 def open_browser():
     """Open the browser to the application URL after a short delay"""

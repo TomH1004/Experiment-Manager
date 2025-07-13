@@ -6,7 +6,7 @@ A web-based control system for managing VR experiments with customizable variabl
 
 ### 1. Install Dependencies
 ```bash
-pip install flask flask-socketio
+pip install -r requirements.txt
 ```
 
 ### 2. Run the Application
@@ -20,6 +20,148 @@ The browser will open automatically at `http://localhost:5000`
 2. Add values for each variable (e.g., "Condition A, Condition B, Condition C" and "Object 1, Object 2, Object 3")
 3. Generate experimental orders
 4. Start your experiment
+
+## Project Structure
+
+```
+VR-Experiment-Manager/
+├── run.py                          # Main launcher (auto-opens browser)
+├── vr_experiment_supervisor.py     # Legacy GUI application (Tkinter)
+├── VRExperimentReceiver.cs         # Unity C# script for receiving UDP messages
+├── Unity_Setup_Guide.md            # Guide for setting up Unity integration
+├── requirements.txt                # Python dependencies
+├── src/                            # Main application source code
+│   ├── __init__.py                 # Package initialization
+│   ├── app.py                      # Flask application and WebSocket setup
+│   ├── experiment_manager.py       # Core experiment management logic
+│   ├── api_routes.py               # Main API endpoints (session management)
+│   ├── config_routes.py            # Configuration management endpoints
+│   └── order_routes.py             # Order generation and management endpoints
+├── static/                         # Web interface files
+│   ├── index.html                  # Main web interface
+│   ├── styles.css                  # CSS styling
+│   └── js/                         # JavaScript modules
+│       ├── app.js                  # Main application logic
+│       ├── config-manager.js       # Variable configuration management
+│       ├── order-manager.js        # Order generation and selection
+│       ├── ui-manager.js           # UI state management
+│       ├── websocket-manager.js    # WebSocket communication
+│       └── event-manager.js        # Event handling
+├── config/                         # Auto-created configuration files
+│   ├── metadata.json               # Variable names and settings
+│   ├── <variable1_name>.json       # Variable 1 values (e.g., condition_types.json)
+│   ├── <variable2_name>.json       # Variable 2 values (e.g., object_types.json)
+│   └── orders.json                 # Generated experimental orders
+├── data/                           # Auto-created session exports
+├── logs/                           # Auto-created log files
+└── .venv/                          # Virtual environment (if using)
+```
+
+## Script Descriptions
+
+### Core Application Scripts
+
+#### `run.py`
+Main launcher script that:
+- Starts the Flask application with WebSocket support
+- Automatically opens the browser to `http://localhost:5000`
+- Handles graceful shutdown on Ctrl+C
+- Sets up logging and error handling
+
+#### `src/app.py`
+Flask application setup and WebSocket management:
+- Initializes Flask app with correct template/static directories
+- Sets up WebSocket (SocketIO) for real-time communication
+- Configures logging with rotating file handler
+- Implements enhanced timer management with WebSocket integration
+- Handles session management and real-time updates to the web interface
+
+#### `src/experiment_manager.py`
+Core experiment management logic:
+- Session creation and management
+- Configuration loading/saving (variables, orders, metadata)
+- UDP message broadcasting to VR applications
+- Order generation using Latin Square design
+- Experiment sequence management
+- Session data export functionality
+
+#### `src/api_routes.py`
+Main API endpoints for session management:
+- Session creation and status endpoints
+- Experiment configuration and validation
+- Condition start/next/force-next controls
+- Session data saving and export
+- Network settings management
+
+#### `src/config_routes.py`
+Configuration management endpoints:
+- Variable definition and management
+- Metadata configuration (variable names, display settings)
+- Configuration validation and saving
+- Variable value management (condition types, object types)
+
+#### `src/order_routes.py`
+Order generation and management:
+- Latin Square order generation
+- Order selection and marking as used
+- Order validation and management
+- Balanced experimental design creation
+
+### Legacy Scripts
+
+#### `vr_experiment_supervisor.py`
+Legacy GUI application (Tkinter-based):
+- Provides a desktop interface for experiment control
+- Maintained for backward compatibility
+- Offers similar functionality to the web interface
+- Can be used as a standalone application
+
+### Unity Integration
+
+#### `VRExperimentReceiver.cs`
+Unity C# script for receiving UDP messages:
+- Handles UDP communication from the web application
+- Manages GameObject activation based on experiment conditions
+- Supports condition and object type combinations
+- Provides debugging and status feedback
+
+### Frontend JavaScript Modules
+
+#### `static/js/app.js`
+Main application logic:
+- Coordinates between all JavaScript modules
+- Handles application initialization
+- Manages global state and configuration
+
+#### `static/js/config-manager.js`
+Variable configuration management:
+- Handles variable definition and editing
+- Manages metadata configuration
+- Provides validation for variable settings
+
+#### `static/js/order-manager.js`
+Order generation and selection:
+- Generates Latin Square experimental orders
+- Handles order selection and marking
+- Manages order validation
+
+#### `static/js/ui-manager.js`
+UI state management:
+- Updates interface based on experiment state
+- Handles button states and visibility
+- Manages status displays and countdown timers
+
+#### `static/js/websocket-manager.js`
+WebSocket communication:
+- Handles real-time communication with Flask backend
+- Manages WebSocket connection and reconnection
+- Processes real-time updates (timers, status changes)
+
+#### `static/js/event-manager.js`
+Event handling:
+- Manages UI event listeners
+- Handles form submissions and button clicks
+- Coordinates between UI components
 
 ## UDP Communication
 
@@ -50,14 +192,6 @@ The system sends UDP broadcast messages to VR applications on port `1221` (confi
   "condition_index": 0
 }
 
-// Moving to next condition
-{
-  "command": "next_condition", 
-  "condition_type": "condition_b",
-  "object_type": "object_2",
-  "condition_index": 1
-}
-
 // Timer expired
 {
   "command": "disable_all",
@@ -65,57 +199,18 @@ The system sends UDP broadcast messages to VR applications on port `1221` (confi
 }
 ```
 
-**Note**: Condition and object names are automatically converted to lowercase in UDP messages.
+## Balanced Experimental Design
 
-## Order Creation
-
-The system uses Latin Square design to create balanced experimental orders.
+The system generates balanced experimental orders using Latin Square design principles:
 
 ### Example Configuration
-**Variables:**
-- Condition Types: `["Condition A", "Condition B", "Condition C"]`
-- Object Types: `["Object 1", "Object 2", "Object 3"]`
+- **Variable 1**: Condition Type (3 values: A, B, C)
+- **Variable 2**: Object Type (3 values: 1, 2, 3)
+- **Result**: 18 balanced orders controlling for sequence effects
 
-### Generated Orders
-```
-Order ORD-0001:
-1. Condition A → Object 1
-2. Condition B → Object 2  
-3. Condition C → Object 3
-
-Order ORD-0002:
-1. Condition B → Object 3
-2. Condition C → Object 1
-3. Condition A → Object 2
-
-Order ORD-0003:
-1. Condition C → Object 2
-2. Condition A → Object 3
-3. Condition B → Object 1
-```
-
-### Order Benefits
-- Each condition appears in each position exactly once
-- Each condition pairs with each object exactly once
+### Benefits
 - Counterbalanced design controls for order effects
 - Reduces from factorial complexity (3! × 3! = 36) to manageable count (18 orders)
-
-## File Structure
-
-```
-VR-Experiment-Manager/
-├── run.py                    # Main launcher (auto-opens browser)
-├── app.py                    # Flask backend
-├── static/script.js          # Frontend JavaScript
-├── templates/index.html      # Web interface
-├── config/                   # Auto-created configuration files
-│   ├── metadata.json         # Variable names
-│   ├── condition_types.json  # Variable 1 values
-│   ├── object_types.json     # Variable 2 values
-│   └── orders.json           # Generated orders
-├── data/                     # Auto-created session exports
-└── logs/                     # Auto-created log files
-```
 
 ## Usage Example
 
@@ -129,7 +224,7 @@ Values: ["Object 1", "Object 2", "Object 3"]
 ```
 
 ### 2. Generate Orders
-Click "Generate All Orders" to create 18 balanced experimental orders.
+Click "Generate All Orders" to create balanced experimental orders.
 
 ### 3. Select Order
 Choose `ORD-0001` from the order list. This automatically:
@@ -192,7 +287,7 @@ For a local network `192.168.1.0/24`:
 ## Troubleshooting
 
 ### Common Issues
-1. **Browser doesn't open**: Run `python app.py` manually, then go to `http://localhost:5000`
+1. **Browser doesn't open**: Run `python run.py` manually, then go to `http://localhost:5000`
 2. **UDP not received**: Check IP/port settings match your VR application
 3. **Order generation fails**: Ensure both variables have equal number of values
 4. **Can't save session**: Enter a Group ID before saving
@@ -203,7 +298,7 @@ Check `logs/vr_experiment_manager.log` for detailed error information and system
 ## Requirements
 
 - Python 3.7+
-- Flask, Flask-SocketIO
+- Flask, Flask-SocketIO, eventlet (see requirements.txt)
 - Modern web browser
 - Network connectivity to VR devices
 
