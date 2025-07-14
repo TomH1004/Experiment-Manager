@@ -30,6 +30,11 @@ class LSLDevice:
         self.recording_status = "Stopped"
         self.created_at = datetime.now()
         
+        # Heart rate data
+        self.current_hr = None
+        self.hr_timestamp = None
+        self.data_age_seconds = None
+        
     def get_base_url(self) -> str:
         """Get the base URL for API calls"""
         return f"http://{self.ip}:{self.port}"
@@ -47,17 +52,21 @@ class LSLDevice:
             'connection_status': self.connection_status,
             'recording_status': self.recording_status,
             'last_heartbeat': self.last_heartbeat.isoformat() if self.last_heartbeat else None,
-            'created_at': self.created_at.isoformat()
+            'created_at': self.created_at.isoformat(),
+            'current_hr': self.current_hr,
+            'hr_timestamp': self.hr_timestamp,
+            'data_age_seconds': self.data_age_seconds
         }
 
 class LSLRemoteController:
     """Manages multiple remote LSL-Lab instances"""
     
-    def __init__(self):
+    def __init__(self, socketio=None):
         self.devices: Dict[str, LSLDevice] = {}
         self.session = None
         self.heartbeat_task = None
         self.heartbeat_interval = 10  # seconds
+        self.socketio = socketio  # For broadcasting real-time updates
         
     async def __aenter__(self):
         """Async context manager entry"""
@@ -152,6 +161,17 @@ class LSLRemoteController:
         if tasks:
             await asyncio.gather(*tasks, return_exceptions=True)
             
+        # Broadcast device status updates via WebSocket if available
+        if self.socketio:
+            try:
+                devices_data = [device.to_dict() for device in self.devices.values()]
+                self.socketio.emit('lsl_device_health_update', {
+                    'action': 'health_check_complete',
+                    'devices': devices_data
+                })
+            except Exception as e:
+                logger.error(f"Error broadcasting device health updates: {e}")
+            
     async def _check_device_health(self, device: LSLDevice):
         """Check health of a single device"""
         try:
@@ -163,16 +183,34 @@ class LSLRemoteController:
                         device.is_connected = True
                         device.connection_status = "Connected"
                         device.last_heartbeat = datetime.now()
+                        
+                        # Update heart rate data
+                        device.current_hr = data.get('current_hr')
+                        device.hr_timestamp = data.get('hr_timestamp')
+                        device.data_age_seconds = data.get('data_age_seconds')
+                        
+                        # Update recording status
+                        device.is_recording = data.get('recording', False)
+                        device.recording_status = "Recording" if device.is_recording else "Stopped"
                     else:
                         device.is_connected = False
                         device.connection_status = "Unhealthy"
+                        device.current_hr = None
+                        device.hr_timestamp = None
+                        device.data_age_seconds = None
                 else:
                     device.is_connected = False
                     device.connection_status = f"HTTP {response.status}"
+                    device.current_hr = None
+                    device.hr_timestamp = None
+                    device.data_age_seconds = None
                     
         except Exception as e:
             device.is_connected = False
             device.connection_status = f"Error: {str(e)[:50]}"
+            device.current_hr = None
+            device.hr_timestamp = None
+            device.data_age_seconds = None
             logger.debug(f"Health check failed for {device.name}: {e}")
             
     async def set_participant_id(self, device_id: str, participant_id: str) -> Tuple[bool, str]:
@@ -412,12 +450,15 @@ class LSLRemoteController:
 # Global instance
 lsl_controller = None
 
-async def get_lsl_controller():
+async def get_lsl_controller(socketio=None):
     """Get or create the global LSL controller instance"""
     global lsl_controller
     if lsl_controller is None:
-        lsl_controller = LSLRemoteController()
+        lsl_controller = LSLRemoteController(socketio)
         await lsl_controller.__aenter__()
+    elif socketio is not None and lsl_controller.socketio is None:
+        # Update socketio reference if not already set
+        lsl_controller.socketio = socketio
     return lsl_controller
 
 async def cleanup_lsl_controller():

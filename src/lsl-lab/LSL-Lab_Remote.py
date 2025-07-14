@@ -14,6 +14,7 @@ Features:
 • Automatic interval management based on experimental conditions
 • Data recording with participant session management
 • Modern dark-themed GUI interface
+• Linux Bluetooth diagnostics and auto-repair
 
 Remote Control Integration:
 --------------------------
@@ -29,6 +30,14 @@ from the VR Experiment Manager system. The API provides endpoints for:
 The remote API server starts automatically on port 8080 and enables seamless integration
 with VR experiments for synchronized physiological data collection.
 
+Linux Bluetooth Support:
+------------------------
+This version includes enhanced Linux support with automatic detection and resolution of:
+• User permission issues (bluetooth group membership)
+• Paired device conflicts with BLE connections  
+• BlueZ compatibility issues
+• Bluetooth service status monitoring
+
 Usage:
 ------
 1. Install dependencies: pip install -r requirements.txt
@@ -42,7 +51,7 @@ Dependencies:
 See requirements.txt for complete list of required Python packages.
 
 Author: VR Experiment Manager Team
-Version: 2.0.0 with Remote Control Integration
+Version: 2.0.1 with Enhanced Linux Support
 """
 
 import threading
@@ -57,6 +66,9 @@ import os
 import asyncio
 import struct
 import sys
+import subprocess
+import grp
+import pwd
 from datetime import datetime
 from bleak import BleakClient, BleakScanner
 from pylsl import local_clock, StreamInfo, StreamOutlet
@@ -115,12 +127,31 @@ class LSLLabRemoteServer:
         def health():
             """Health check endpoint"""
             try:
+                # Get current heart rate if available
+                current_hr = None
+                hr_timestamp = None
+                
+                if (self.polar_recorder.connected and 
+                    self.polar_recorder.data_buffers.get('HeartRate')):
+                    hr_data = self.polar_recorder.data_buffers['HeartRate']
+                    if hr_data:
+                        # Get the most recent heart rate value
+                        hr_timestamp, current_hr = hr_data[-1]
+                        # Check if the data is recent (within last 30 seconds)
+                        import time
+                        current_time = time.time()
+                        if current_time - hr_timestamp > 30:
+                            current_hr = None  # Data is too old
+                
                 return jsonify({
                     'success': True,
                     'status': 'healthy',
                     'connected': self.polar_recorder.connected,
                     'recording': self.polar_recorder.recording,
-                    'participant_id': self.polar_recorder.current_participant_id
+                    'participant_id': self.polar_recorder.current_participant_id,
+                    'current_hr': current_hr,
+                    'hr_timestamp': hr_timestamp,
+                    'data_age_seconds': (time.time() - hr_timestamp) if hr_timestamp else None
                 })
             except Exception as e:
                 return jsonify({
@@ -554,11 +585,148 @@ class PolarStreamRecorder:
         self.status_var = tk.StringVar()
         self.status_var.set("Status: Not connected")
 
-
+        # Perform Linux Bluetooth diagnostics on startup
+        self._check_linux_bluetooth_setup()
 
         self.setup_ui()
 
+    def _check_linux_bluetooth_setup(self):
+        """Check Linux Bluetooth setup and provide diagnostics"""
+        if sys.platform != "linux":
+            return
+            
+        try:
+            print("\n--- Linux Bluetooth Diagnostics ---")
+            
+            # Check if user is in bluetooth group
+            current_user = pwd.getpwuid(os.getuid()).pw_name
+            try:
+                bluetooth_group = grp.getgrnam('bluetooth')
+                is_in_group = current_user in bluetooth_group.gr_mem
+                
+                if not is_in_group:
+                    print("⚠️  WARNING: User not in 'bluetooth' group")
+                    print("   This may cause permission issues with BLE connections")
+                    print("   Run: sudo usermod -a -G bluetooth $USER")
+                    print("   Then log out and log back in")
+                else:
+                    print("✓ User is in 'bluetooth' group")
+            except KeyError:
+                print("⚠️  WARNING: 'bluetooth' group not found on system")
+            
+            # Check Bluetooth service status
+            try:
+                result = subprocess.run(['systemctl', 'is-active', 'bluetooth'], 
+                                      capture_output=True, text=True)
+                if result.returncode == 0 and result.stdout.strip() == 'active':
+                    print("✓ Bluetooth service is active")
+                else:
+                    print("⚠️  WARNING: Bluetooth service is not active")
+                    print("   Run: sudo systemctl start bluetooth")
+            except Exception as e:
+                print(f"ℹ️  Could not check Bluetooth service status: {e}")
+            
+            # Check for BlueZ version
+            try:
+                result = subprocess.run(['bluetoothctl', '--version'], 
+                                      capture_output=True, text=True)
+                if result.returncode == 0:
+                    version = result.stdout.strip()
+                    print(f"✓ BlueZ version: {version}")
+                else:
+                    print("⚠️  Could not determine BlueZ version")
+            except Exception as e:
+                print(f"⚠️  BlueZ not found: {e}")
+            
+            # Check for paired Polar devices that might interfere
+            try:
+                result = subprocess.run(['bluetoothctl', 'devices', 'Paired'], 
+                                      capture_output=True, text=True)
+                if result.returncode == 0:
+                    paired_devices = result.stdout.strip()
+                    if 'Polar' in paired_devices:
+                        print("⚠️  WARNING: Polar device found in paired devices list")
+                        print("   Paired BLE devices can interfere with direct connections")
+                        print("   Consider removing with: bluetoothctl remove <device_address>")
+                        print(f"   Paired devices:\n{paired_devices}")
+                    else:
+                        print("✓ No conflicting Polar devices in paired list")
+            except Exception as e:
+                print(f"ℹ️  Could not check paired devices: {e}")
+            
+            print("--- End Bluetooth Diagnostics ---\n")
+            
+        except Exception as e:
+            print(f"Error during Bluetooth diagnostics: {e}")
 
+    def _fix_linux_bluetooth_issues(self):
+        """Attempt to automatically fix common Linux Bluetooth issues"""
+        if sys.platform != "linux":
+            return False
+            
+        print("Attempting to resolve Linux Bluetooth issues...")
+        
+        try:
+            # Check for paired Polar devices and offer to remove them
+            result = subprocess.run(['bluetoothctl', 'devices', 'Paired'], 
+                                  capture_output=True, text=True)
+            if result.returncode == 0:
+                paired_devices = result.stdout.strip()
+                if 'Polar' in paired_devices:
+                    response = messagebox.askyesno(
+                        "Paired Polar Device Detected",
+                        "A Polar device is already paired to this system, which can interfere "
+                        "with BLE connections.\n\n"
+                        "Would you like to automatically remove it?\n\n"
+                        f"Paired devices:\n{paired_devices}"
+                    )
+                    
+                    if response:
+                        # Extract device addresses and remove them
+                        lines = paired_devices.split('\n')
+                        for line in lines:
+                            if 'Polar' in line:
+                                parts = line.split()
+                                if len(parts) >= 2:
+                                    device_address = parts[1]
+                                    try:
+                                        subprocess.run(['bluetoothctl', 'remove', device_address], 
+                                                     check=True, capture_output=True)
+                                        print(f"Removed paired Polar device: {device_address}")
+                                        messagebox.showinfo("Device Removed", 
+                                                          f"Successfully removed paired Polar device: {device_address}")
+                                        return True
+                                    except subprocess.CalledProcessError as e:
+                                        print(f"Failed to remove device {device_address}: {e}")
+            
+            # Restart Bluetooth service if needed
+            try:
+                subprocess.run(['systemctl', 'is-active', 'bluetooth'], 
+                             check=True, capture_output=True)
+            except subprocess.CalledProcessError:
+                response = messagebox.askyesno(
+                    "Bluetooth Service Issue",
+                    "The Bluetooth service appears to be inactive.\n\n"
+                    "Would you like to attempt to restart it?\n"
+                    "(This may require administrator privileges)"
+                )
+                
+                if response:
+                    try:
+                        subprocess.run(['pkexec', 'systemctl', 'restart', 'bluetooth'], 
+                                     check=True)
+                        print("Bluetooth service restarted successfully")
+                        messagebox.showinfo("Service Restarted", "Bluetooth service restarted successfully")
+                        return True
+                    except subprocess.CalledProcessError as e:
+                        print(f"Failed to restart Bluetooth service: {e}")
+                        messagebox.showerror("Service Restart Failed", 
+                                           f"Failed to restart Bluetooth service: {e}")
+            
+        except Exception as e:
+            print(f"Error attempting to fix Bluetooth issues: {e}")
+            
+        return False
 
     def setup_ui(self):
         # Section title with icon-like prefix
@@ -1333,12 +1501,73 @@ class PolarStreamRecorder:
         try:
             print(f"Attempting to connect to device at address: {self.device_address}")
 
-            # Use a longer timeout for connection
-            self.client = BleakClient(self.device_address, timeout=20.0)
+            # Linux-specific pre-connection checks
+            if sys.platform == "linux":
+                print("Performing Linux-specific BLE checks...")
+                
+                # Check if the device appears to be paired and interfering
+                try:
+                    result = subprocess.run(['bluetoothctl', 'info', self.device_address], 
+                                          capture_output=True, text=True)
+                    if result.returncode == 0 and 'Paired: yes' in result.stdout:
+                        print("⚠️  Device appears to be paired - this may cause connection issues")
+                        response = messagebox.askyesno(
+                            "Paired Device Detected",
+                            f"The Polar device {self.device_address} appears to be paired to this system.\n\n"
+                            "This can prevent direct BLE connections from working properly.\n\n"
+                            "Would you like to unpair it and try again?"
+                        )
+                        
+                        if response:
+                            try:
+                                subprocess.run(['bluetoothctl', 'remove', self.device_address], 
+                                             check=True, capture_output=True)
+                                print(f"Unpaired device {self.device_address}")
+                                # Wait a moment for the system to process the removal
+                                await asyncio.sleep(2)
+                            except subprocess.CalledProcessError as e:
+                                print(f"Failed to unpair device: {e}")
+                        else:
+                            print("Proceeding with connection attempt despite pairing...")
+                except Exception as e:
+                    print(f"Could not check device pairing status: {e}")
+
+            # Use a longer timeout for connection on Linux due to BlueZ quirks
+            timeout = 30.0 if sys.platform == "linux" else 20.0
+            self.client = BleakClient(self.device_address, timeout=timeout)
+            
+            print(f"Connecting with {timeout}s timeout...")
             connected = await self.client.connect()
 
             if not connected or not self.client.is_connected:
-                raise Exception("Failed to connect to device")
+                # On Linux, try additional connection strategies
+                if sys.platform == "linux":
+                    print("Initial connection failed, trying Linux-specific recovery...")
+                    
+                    # Try power cycling the adapter
+                    try:
+                        print("Attempting Bluetooth adapter power cycle...")
+                        subprocess.run(['bluetoothctl', 'power', 'off'], 
+                                     capture_output=True, timeout=5)
+                        await asyncio.sleep(2)
+                        subprocess.run(['bluetoothctl', 'power', 'on'], 
+                                     capture_output=True, timeout=5)
+                        await asyncio.sleep(3)
+                        
+                        # Try connecting again
+                        self.client = BleakClient(self.device_address, timeout=timeout)
+                        connected = await self.client.connect()
+                        
+                        if connected and self.client.is_connected:
+                            print("✓ Connection successful after adapter power cycle")
+                        else:
+                            raise Exception("Failed to connect even after adapter power cycle")
+                            
+                    except Exception as e:
+                        print(f"Adapter power cycle failed: {e}")
+                        raise Exception("Failed to connect to device - try manual Bluetooth troubleshooting")
+                else:
+                    raise Exception("Failed to connect to device")
 
             self.connected = True
             self.status_var.set(f"Status: Connected to {self.device_address}")
@@ -1443,6 +1672,29 @@ class PolarStreamRecorder:
         except Exception as e:
             self.connected = False
             print(f"Connection failed: {str(e)}")
+            
+            # Offer Linux-specific troubleshooting
+            if sys.platform == "linux" and "Failed to connect" in str(e):
+                response = messagebox.askyesno(
+                    "Connection Failed - Linux Troubleshooting",
+                    f"Connection to Polar H10 failed: {str(e)}\n\n"
+                    "This is often caused by Linux Bluetooth configuration issues.\n\n"
+                    "Would you like to run automatic troubleshooting?\n"
+                    "(This may unpair conflicting devices and restart Bluetooth services)"
+                )
+                
+                if response:
+                    if self._fix_linux_bluetooth_issues():
+                        messagebox.showinfo("Troubleshooting Complete", 
+                                          "Bluetooth troubleshooting completed. Please try connecting again.")
+                    else:
+                        messagebox.showinfo("Manual Steps Required", 
+                                          "Automatic troubleshooting completed. If connection still fails:\n\n"
+                                          "1. Ensure you're in the 'bluetooth' group\n"
+                                          "2. Remove any paired Polar devices\n"
+                                          "3. Restart the Bluetooth service\n"
+                                          "4. Try running the application with 'sudo' (not recommended for regular use)")
+            
             raise e
 
     def _force_initial_reading(self):

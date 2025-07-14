@@ -1,12 +1,12 @@
 # Core GUI and plotting dependencies
 matplotlib==3.7.2
-numpy==1.24.3
+numpy
 
 # Bluetooth Low Energy communication
 bleak==0.20.2
 
 # Lab Streaming Layer for real-time data streaming
-pylsl==1.16.1
+pylsl==1.10.5
 
 # Flask web framework for remote API server
 Flask==2.3.3

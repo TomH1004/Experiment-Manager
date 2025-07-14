@@ -145,6 +145,11 @@ class LSLManager {
         socket.on('status_update', (data) => {
             this.handleExperimentStatusUpdate(data);
         });
+        
+        // Device health updates (including heart rate data)
+        socket.on('lsl_device_health_update', (data) => {
+            this.handleDeviceHealthUpdate(data);
+        });
     }
     
     async loadDevices() {
@@ -197,6 +202,33 @@ class LSLManager {
         const recordingStatusClass = device.is_recording ? 'text-blue-600' : 'text-gray-600';
         const recordingStatusIcon = device.is_recording ? 'fa-record-vinyl' : 'fa-stop-circle';
         
+        // Format heart rate display
+        let heartRateDisplay = 'No data';
+        let heartRateClass = 'text-gray-500';
+        let heartIcon = 'fa-heart-broken';
+        
+        if (device.current_hr !== null && device.current_hr !== undefined) {
+            heartRateDisplay = `${device.current_hr} bpm`;
+            heartIcon = 'fa-heartbeat';
+            
+            // Color coding based on data age
+            if (device.data_age_seconds !== null) {
+                if (device.data_age_seconds <= 10) {
+                    heartRateClass = 'text-green-600 font-semibold animate-pulse';  // Fresh data with pulse
+                } else if (device.data_age_seconds <= 30) {
+                    heartRateClass = 'text-yellow-600 font-semibold'; // Slightly old
+                } else {
+                    heartRateClass = 'text-orange-600';               // Old data
+                }
+            } else {
+                heartRateClass = 'text-blue-600 font-semibold';      // Current data
+            }
+        } else if (device.is_connected) {
+            heartRateDisplay = 'Waiting...';
+            heartRateClass = 'text-gray-400';
+            heartIcon = 'fa-heart';
+        }
+        
         deviceDiv.innerHTML = `
             <div class="flex items-center justify-between mb-3">
                 <div class="flex items-center">
@@ -215,7 +247,7 @@ class LSLManager {
                 </div>
             </div>
             
-            <div class="grid grid-cols-2 gap-4 mb-4 text-sm">
+            <div class="grid grid-cols-3 gap-4 mb-4 text-sm">
                 <div>
                     <span class="text-gray-600">IP Address:</span>
                     <span class="font-mono ml-2">${this.escapeHtml(device.ip)}:${device.port}</span>
@@ -223,6 +255,10 @@ class LSLManager {
                 <div>
                     <span class="text-gray-600">Participant:</span>
                     <span class="ml-2">${this.escapeHtml(device.participant_id)}</span>
+                </div>
+                <div>
+                    <span class="text-gray-600">Heart Rate:</span>
+                    <span class="ml-2 ${heartRateClass}"><i class="fas ${heartIcon} mr-1"></i>${heartRateDisplay}</span>
                 </div>
             </div>
             
@@ -702,21 +738,38 @@ class LSLManager {
     }
     
     handleExperimentStatusUpdate(data) {
-        // Automatic interval management based on experiment conditions
         if (!this.autoIntervalManagement) {
             return;
         }
         
-        // Start intervals when a condition starts
-        if (data.status && data.status.includes('Condition') && data.countdown_active) {
-            const conditionIndex = data.current_condition_index || 0;
-            const intervalName = `Condition_${conditionIndex + 1}`;
-            this.startAllIntervals(intervalName);
-        }
-        
-        // End intervals when condition ends (next condition or experiment complete)
-        if (data.status && (data.status.includes('Next condition') || data.status.includes('Completed'))) {
+        // Handle automatic interval management based on experiment status
+        if (data.status && data.status.includes('Active Condition')) {
+            // Condition started - start intervals on all recording devices
+            if (this.currentRecordingState === 'recording') {
+                this.startAllIntervals();
+            }
+        } else if (data.status && data.status.includes('expired')) {
+            // Condition ended - end intervals on all devices
             this.endAllIntervals();
+        }
+    }
+    
+    handleDeviceHealthUpdate(data) {
+        if (data.action === 'health_check_complete' && data.devices) {
+            // Update our local device array with the latest health data
+            data.devices.forEach(updatedDevice => {
+                const deviceIndex = this.devices.findIndex(d => d.device_id === updatedDevice.device_id);
+                if (deviceIndex !== -1) {
+                    // Update the existing device with new health data
+                    this.devices[deviceIndex] = {
+                        ...this.devices[deviceIndex],
+                        ...updatedDevice
+                    };
+                }
+            });
+            
+            // Re-render devices to show updated heart rate data
+            this.renderDevices();
         }
     }
     

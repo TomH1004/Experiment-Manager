@@ -33,7 +33,7 @@ def create_lsl_routes(manager, socketio):
         """Get all LSL devices"""
         try:
             async def _get_devices():
-                controller = await get_lsl_controller()
+                controller = await get_lsl_controller(socketio)
                 devices = controller.get_all_devices()
                 return [device.to_dict() for device in devices]
             
@@ -67,7 +67,7 @@ def create_lsl_routes(manager, socketio):
                 return jsonify({'success': False, 'message': 'Participant ID is required'})
             
             async def _add_device():
-                controller = await get_lsl_controller()
+                controller = await get_lsl_controller(socketio)
                 
                 # Test connection first
                 success, message = await controller.test_device_connection(ip, port)
@@ -110,7 +110,7 @@ def create_lsl_routes(manager, socketio):
         """Remove an LSL device"""
         try:
             async def _remove_device():
-                controller = await get_lsl_controller()
+                controller = await get_lsl_controller(socketio)
                 return controller.remove_device(device_id)
             
             success = run_async(_remove_device())
@@ -137,7 +137,7 @@ def create_lsl_routes(manager, socketio):
         """Test connection to an LSL device"""
         try:
             async def _test_device():
-                controller = await get_lsl_controller()
+                controller = await get_lsl_controller(socketio)
                 device = controller.get_device(device_id)
                 if not device:
                     return False, "Device not found"
@@ -165,7 +165,7 @@ def create_lsl_routes(manager, socketio):
                 return jsonify({'success': False, 'message': 'Participant ID is required'})
             
             async def _set_participant():
-                controller = await get_lsl_controller()
+                controller = await get_lsl_controller(socketio)
                 return await controller.set_participant_id(device_id, participant_id)
             
             success, message = run_async(_set_participant())
@@ -192,7 +192,7 @@ def create_lsl_routes(manager, socketio):
         """Start recording on a specific device"""
         try:
             async def _start_recording():
-                controller = await get_lsl_controller()
+                controller = await get_lsl_controller(socketio)
                 return await controller.start_recording(device_id)
             
             success, message = run_async(_start_recording())
@@ -218,7 +218,7 @@ def create_lsl_routes(manager, socketio):
         """Stop recording on a specific device"""
         try:
             async def _stop_recording():
-                controller = await get_lsl_controller()
+                controller = await get_lsl_controller(socketio)
                 return await controller.stop_recording(device_id)
             
             success, message = run_async(_stop_recording())
@@ -244,7 +244,7 @@ def create_lsl_routes(manager, socketio):
         """Start recording on all devices"""
         try:
             async def _start_all():
-                controller = await get_lsl_controller()
+                controller = await get_lsl_controller(socketio)
                 return await controller.start_all_recording()
             
             success_count, total_count, errors = run_async(_start_all())
@@ -284,7 +284,7 @@ def create_lsl_routes(manager, socketio):
         """Stop recording on all devices"""
         try:
             async def _stop_all():
-                controller = await get_lsl_controller()
+                controller = await get_lsl_controller(socketio)
                 return await controller.stop_all_recording()
             
             success_count, total_count, errors = run_async(_stop_all())
@@ -327,7 +327,7 @@ def create_lsl_routes(manager, socketio):
             interval_name = data.get('interval_name')
             
             async def _start_all():
-                controller = await get_lsl_controller()
+                controller = await get_lsl_controller(socketio)
                 return await controller.start_all_intervals(interval_name)
             
             success_count, total_count, errors = run_async(_start_all())
@@ -371,7 +371,7 @@ def create_lsl_routes(manager, socketio):
         """End intervals on all devices"""
         try:
             async def _end_all():
-                controller = await get_lsl_controller()
+                controller = await get_lsl_controller(socketio)
                 return await controller.end_all_intervals()
             
             success_count, total_count, errors = run_async(_end_all())
@@ -414,7 +414,7 @@ def create_lsl_routes(manager, socketio):
             interval_name = data.get('interval_name')
             
             async def _start_interval():
-                controller = await get_lsl_controller()
+                controller = await get_lsl_controller(socketio)
                 return await controller.start_interval(device_id, interval_name)
             
             success, message = run_async(_start_interval())
@@ -441,7 +441,7 @@ def create_lsl_routes(manager, socketio):
         """End interval on a specific device"""
         try:
             async def _end_interval():
-                controller = await get_lsl_controller()
+                controller = await get_lsl_controller(socketio)
                 return await controller.end_interval(device_id)
             
             success, message = run_async(_end_interval())
@@ -470,7 +470,7 @@ def create_lsl_routes(manager, socketio):
             timestamp_name = data.get('timestamp_name')
             
             async def _mark_timestamp():
-                controller = await get_lsl_controller()
+                controller = await get_lsl_controller(socketio)
                 return await controller.mark_timestamp(device_id, timestamp_name)
             
             success, message = run_async(_mark_timestamp())
