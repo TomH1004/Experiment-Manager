@@ -26,6 +26,7 @@ class VRExperimentManager {
         this.websocketManager = new WebSocketManager(this);
         this.eventManager = new EventManager(this);
         this.settingsManager = new SettingsManager(this);
+        this.lslManager = new LSLManager(this);
         
         // Initialize application
         this.init();
@@ -45,6 +46,7 @@ class VRExperimentManager {
             this.uiManager.initialize();
             this.websocketManager.initialize();
             this.eventManager.initialize();
+            this.lslManager.initialize();
             
             // Load system status
             await this.loadSystemStatus();
@@ -122,13 +124,13 @@ class VRExperimentManager {
     }
     
     startConnectionMonitoring() {
-        // Check connection immediately
-        this.checkServerConnection();
-        
-        // Then check every 5 seconds
+        // Check connection every 5 seconds
         setInterval(() => {
             this.checkServerConnection();
         }, 5000);
+        
+        // Initial check
+        this.checkServerConnection();
     }
     
     async checkServerConnection() {
@@ -191,10 +193,10 @@ class VRExperimentManager {
         }
     }
     
-    // Session management methods
     async saveSessionData(groupId, notes) {
         if (!groupId.trim()) {
-            this.uiManager.showSystemAlert('Archive Error', 'Group ID is required', 'error');
+            this.uiManager.showSystemAlert('Input Error', 
+                'Group ID is required to save session data.', 'error');
             return;
         }
         
@@ -219,7 +221,7 @@ class VRExperimentManager {
                 this.uiManager.showSystemAlert('Archive Error', data.message, 'error');
             }
         } catch (error) {
-            console.error('Error archiving session data:', error);
+            console.error('Error saving session data:', error);
             this.uiManager.showSystemAlert('System Error', 
                 'Failed to archive session data.', 'error');
         } finally {
@@ -274,6 +276,32 @@ class VRExperimentManager {
         }
     }
     
+    async startPracticeTrial() {
+        try {
+            this.uiManager.showProcessingState('Initiating practice trial...');
+            
+            const response = await fetch(`/api/session/${this.sessionId}/practice`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            });
+            
+            const data = await response.json();
+            if (data.success) {
+                this.uiManager.showSystemAlert('Practice Trial', data.message, 'success');
+            } else {
+                this.uiManager.showSystemAlert('Practice Error', data.message, 'error');
+            }
+        } catch (error) {
+            console.error('Error starting practice trial:', error);
+            this.uiManager.showSystemAlert('System Error', 
+                'Failed to start practice trial.', 'error');
+        } finally {
+            this.uiManager.hideProcessingState();
+        }
+    }
+    
     async startCondition() {
         try {
             this.uiManager.showProcessingState('Initiating experimental condition...');
@@ -287,40 +315,14 @@ class VRExperimentManager {
             
             const data = await response.json();
             if (data.success) {
-                console.log('Condition initiated:', data.condition_name);
+                this.uiManager.showSystemAlert('Condition Started', data.message, 'success');
             } else {
-                this.uiManager.showSystemAlert('Initiation Error', data.message, 'error');
+                this.uiManager.showSystemAlert('Start Error', data.message, 'error');
             }
         } catch (error) {
-            console.error('Error initiating condition:', error);
+            console.error('Error starting condition:', error);
             this.uiManager.showSystemAlert('System Error', 
-                'Failed to initiate experimental condition.', 'error');
-        } finally {
-            this.uiManager.hideProcessingState();
-        }
-    }
-    
-    async startPracticeTrial() {
-        try {
-            this.uiManager.showProcessingState('Starting practice trial...');
-            
-            const response = await fetch(`/api/session/${this.sessionId}/practice`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                }
-            });
-            
-            const data = await response.json();
-            if (data.success) {
-                console.log('Practice trial started:', data.condition_name);
-            } else {
-                this.uiManager.showSystemAlert('Practice Trial Error', data.message, 'error');
-            }
-        } catch (error) {
-            console.error('Error starting practice trial:', error);
-            this.uiManager.showSystemAlert('System Error', 
-                'Failed to start practice trial.', 'error');
+                'Failed to start condition.', 'error');
         } finally {
             this.uiManager.hideProcessingState();
         }
@@ -339,7 +341,7 @@ class VRExperimentManager {
             
             const data = await response.json();
             if (data.success) {
-                console.log('Condition restarted:', data.condition_name);
+                this.uiManager.showSystemAlert('Condition Restarted', data.message, 'success');
             } else {
                 this.uiManager.showSystemAlert('Restart Error', data.message, 'error');
             }
@@ -365,13 +367,9 @@ class VRExperimentManager {
             
             const data = await response.json();
             if (data.success) {
-                if (data.completed) {
-                    this.uiManager.showSystemAlert('Protocol Complete', data.message, 'success');
-                } else {
-                    console.log('Progressed to next condition:', data.condition_name);
-                }
+                this.uiManager.showSystemAlert('Next Condition', data.message, 'success');
             } else {
-                this.uiManager.showSystemAlert('Progression Error', data.message, 'error');
+                this.uiManager.showSystemAlert('Progress Error', data.message, 'error');
             }
         } catch (error) {
             console.error('Error progressing to next condition:', error);
@@ -384,7 +382,7 @@ class VRExperimentManager {
     
     async forceNextCondition() {
         try {
-            this.uiManager.showProcessingState('Overriding condition timer...');
+            this.uiManager.showProcessingState('Force advancing to next condition...');
             
             const response = await fetch(`/api/session/${this.sessionId}/force-next`, {
                 method: 'POST',
@@ -395,15 +393,14 @@ class VRExperimentManager {
             
             const data = await response.json();
             if (data.success) {
-                // UI updates will come via WebSocket
-                console.log('Timer overridden successfully');
+                this.uiManager.showSystemAlert('Force Advanced', data.message, 'success');
             } else {
-                this.uiManager.showSystemAlert('Override Error', data.message, 'error');
+                this.uiManager.showSystemAlert('Force Advance Error', data.message, 'error');
             }
         } catch (error) {
-            console.error('Error overriding timer:', error);
+            console.error('Error force advancing condition:', error);
             this.uiManager.showSystemAlert('System Error', 
-                'Failed to override condition timer.', 'error');
+                'Failed to force advance condition.', 'error');
         } finally {
             this.uiManager.hideProcessingState();
         }
@@ -428,12 +425,37 @@ class VRExperimentManager {
                 this.uiManager.showSystemAlert('Reset Error', data.message, 'error');
             }
         } catch (error) {
-            console.error('Error resetting protocol:', error);
+            console.error('Error resetting experiment:', error);
             this.uiManager.showSystemAlert('System Error', 
                 'Failed to reset experimental protocol.', 'error');
         } finally {
             this.uiManager.hideProcessingState();
         }
+    }
+    
+    // LSL integration methods
+    getLSLRecordingState() {
+        return this.lslManager.getRecordingState();
+    }
+    
+    getLSLConnectedDeviceCount() {
+        return this.lslManager.getConnectedDeviceCount();
+    }
+    
+    getLSLRecordingDeviceCount() {
+        return this.lslManager.getRecordingDeviceCount();
+    }
+    
+    setAutoIntervalManagement(enabled) {
+        this.lslManager.setAutoIntervalManagement(enabled);
+    }
+    
+    async startAllLSLRecording() {
+        return await this.lslManager.startAllRecording();
+    }
+    
+    async stopAllLSLRecording() {
+        return await this.lslManager.stopAllRecording();
     }
 }
 
@@ -445,4 +467,7 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Make it globally accessible for legacy compatibility
     window.controlSystem = vrExperimentManager;
+    
+    // Make LSL manager globally accessible for onclick handlers
+    window.lslManager = vrExperimentManager.lslManager;
 }); 

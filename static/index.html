@@ -96,6 +96,36 @@
             </div>
         </section>
 
+        <!-- LSL Device Management -->
+        <section class="scientific-card rounded-lg p-6 mb-8">
+            <h2 class="text-xl font-semibold text-gray-800 mb-6 flex items-center justify-between">
+                <div class="flex items-center">
+                    <i class="fas fa-heartbeat mr-3 text-red-600"></i>
+                    Polar Device Management
+                </div>
+                <div class="flex space-x-2">
+                    <button id="add-lsl-device" class="bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded-md text-sm">
+                        <i class="fas fa-plus mr-2"></i>Add Device
+                    </button>
+                    <button id="start-all-recording" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-md text-sm disabled:opacity-50" disabled>
+                        <i class="fas fa-play mr-2"></i>Start All Recording
+                    </button>
+                    <button id="stop-all-recording" class="bg-red-600 hover:bg-red-700 text-white px-3 py-2 rounded-md text-sm disabled:opacity-50" disabled>
+                        <i class="fas fa-stop mr-2"></i>Stop All Recording
+                    </button>
+                </div>
+            </h2>
+            
+            <div id="lsl-devices-container" class="space-y-4">
+                <!-- LSL devices will be added here -->
+            </div>
+            
+            <div id="no-devices-message" class="text-center text-gray-500 py-8">
+                <i class="fas fa-info-circle text-2xl mb-2 block"></i>
+                No LSL devices configured. Click "Add Device" to connect to LSL-Lab instances.
+            </div>
+        </section>
+
         <!-- Experimental Conditions Configuration -->
         <section class="scientific-card rounded-lg p-6 mb-8">
             <h2 class="text-xl font-semibold text-gray-800 mb-6 flex items-center justify-between">
@@ -559,6 +589,73 @@
         </div>
     </div>
 
+    <!-- LSL Device Configuration Modal -->
+    <div id="lsl-device-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden flex items-center justify-center z-50">
+        <div class="scientific-card rounded-lg max-w-md w-full mx-4">
+            <div class="p-6">
+                <div class="flex items-center justify-between mb-6">
+                    <h2 class="text-xl font-semibold text-gray-800 flex items-center">
+                        <i class="fas fa-heartbeat mr-3 text-red-600"></i>
+                        Add LSL Device
+                    </h2>
+                    <button id="close-lsl-device-modal" class="text-gray-500 hover:text-gray-700 text-xl">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                
+                <div class="space-y-4">
+                    <div>
+                        <label for="lsl-device-name" class="block text-sm font-medium text-gray-700 mb-2">
+                            Device Name
+                        </label>
+                        <input type="text" id="lsl-device-name" placeholder="e.g., Participant 1" 
+                               class="scientific-input w-full px-3 py-2 border border-gray-300 rounded-md text-sm">
+                        <p class="text-xs text-gray-500 mt-1">Friendly name to identify this device</p>
+                    </div>
+                    
+                    <div>
+                        <label for="lsl-device-ip" class="block text-sm font-medium text-gray-700 mb-2">
+                            IP Address
+                        </label>
+                        <input type="text" id="lsl-device-ip" placeholder="192.168.1.100" 
+                               class="scientific-input w-full px-3 py-2 border border-gray-300 rounded-md text-sm font-mono">
+                        <p class="text-xs text-gray-500 mt-1">IP address of the device running LSL-Lab</p>
+                    </div>
+                    
+                    <div>
+                        <label for="lsl-device-port" class="block text-sm font-medium text-gray-700 mb-2">
+                            Port
+                        </label>
+                        <input type="number" id="lsl-device-port" placeholder="8080" min="1" max="65535"
+                               class="scientific-input w-full px-3 py-2 border border-gray-300 rounded-md text-sm font-mono">
+                        <p class="text-xs text-gray-500 mt-1">HTTP port for LSL-Lab API communication</p>
+                    </div>
+                    
+                    <div>
+                        <label for="lsl-participant-id" class="block text-sm font-medium text-gray-700 mb-2">
+                            Participant ID
+                        </label>
+                        <input type="text" id="lsl-participant-id" placeholder="P001" 
+                               class="scientific-input w-full px-3 py-2 border border-gray-300 rounded-md text-sm">
+                        <p class="text-xs text-gray-500 mt-1">Participant ID for data organization</p>
+                    </div>
+                </div>
+                
+                <div class="flex justify-end space-x-4 mt-6">
+                    <button id="cancel-lsl-device" class="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-md text-sm">
+                        Cancel
+                    </button>
+                    <button id="test-lsl-connection" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm">
+                        <i class="fas fa-wifi mr-2"></i>Test Connection
+                    </button>
+                    <button id="save-lsl-device" class="scientific-button text-white px-4 py-2 rounded-md text-sm">
+                        <i class="fas fa-plus mr-2"></i>Add Device
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Load JavaScript modules -->
     <script src="/static/js/config-manager.js"></script>
     <script src="/static/js/order-manager.js"></script>
@@ -566,6 +663,7 @@
     <script src="/static/js/websocket-manager.js"></script>
     <script src="/static/js/event-manager.js"></script>
     <script src="/static/js/settings-manager.js"></script>
+    <script src="/static/js/lsl-manager.js"></script>
     <script src="/static/js/app.js"></script>
 </body>
 </html> 

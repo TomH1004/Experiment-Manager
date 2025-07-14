@@ -11,12 +11,15 @@ from logging.handlers import RotatingFileHandler
 import os
 import time
 import threading
+import atexit
 
 # Import application modules
 from .experiment_manager import VRExperimentManager
 from .api_routes import create_api_routes
 from .config_routes import create_config_routes
 from .order_routes import create_order_routes
+from .lsl_routes import create_lsl_routes
+from .lsl_remote_controller import cleanup_lsl_controller
 
 # Initialize Flask app
 app = Flask(__name__, template_folder='../static', static_folder='../static')
@@ -104,124 +107,103 @@ class TimerManager:
                         session_data['countdown_active'] = False
                         self._condition_finished(session_id)
             
-            if not active_sessions:
-                break
+            # Check for sessions that need their timer started
+            for session_id, session_data in self.manager.sessions.items():
+                if session_data.get('practice_trial_active') and session_data.get('practice_start_time'):
+                    elapsed_time = time.time() - session_data['practice_start_time']
+                    remaining_time = max(0, 60 - elapsed_time)  # 60 seconds for practice
+                    
+                    if remaining_time > 0:
+                        minutes = int(remaining_time // 60)
+                        seconds = int(remaining_time % 60)
+                        countdown_text = f"Practice Time: {minutes:02d}:{seconds:02d}"
+                        
+                        # Emit countdown update
+                        self.socketio.emit('countdown_update', {
+                            'countdown_text': countdown_text,
+                            'remaining_time': remaining_time
+                        }, room=session_id)
+                    else:
+                        # Practice timer expired
+                        session_data['practice_trial_active'] = False
+                        session_data['practice_start_time'] = None
+                        
+                        # Emit practice completion
+                        self.socketio.emit('practice_complete', {
+                            'message': 'Practice trial completed'
+                        }, room=session_id)
+                        
+                        # Update status
+                        self.socketio.emit('status_update', {
+                            'status': 'Practice trial completed',
+                            'practice_trial': False,
+                            'countdown_active': False
+                        }, room=session_id)
             
-            time.sleep(1)
+            time.sleep(1)  # Check every second
     
     def _condition_finished(self, session_id):
-        """Called when the 5-minute timer expires"""
-        session_data = self.manager.get_session(session_id)
-        
-        self.manager.log_message(session_id, "5-minute timer expired - sending disable_all command")
-        
-        # Send command to Unity to disable all objects and avatars
-        message_data = {
-            "command": "disable_all",
-            "reason": "timer_expired"
-        }
-        
-        if self.manager.send_udp_message(session_id, message_data):
-            # Check if this was a practice trial
-            if session_data.get('practice_trial_active', False):
-                # Practice trial finished
-                session_data['practice_trial_active'] = False
-                session_data['practice_start_time'] = None
-                
-                self.socketio.emit('status_update', {
-                    'status': 'Practice trial completed - Ready to start experiment',
-                    'countdown_text': 'Practice Complete',
-                    'protocol_sequence': session_data['experiment_sequence'],
-                    'current_condition_index': 0,
-                    'experiment_completed': False,
-                    'experiment_configured': True,
-                    'practice_trial': False,
-                    'countdown_active': False,
-                    'enable_start': True,
-                    'enable_practice': True
-                }, room=session_id)
-            else:
-                # Regular condition finished
-                # Check if this was the last condition
-                current_index = session_data['current_condition_index']
-                sequence_length = len(session_data['experiment_sequence'])
-                is_last_condition = current_index >= sequence_length - 1
-                
-                self.manager.log_message(session_id, f"Condition {current_index + 1} finished. Current index: {current_index}, Sequence length: {sequence_length}, Is last: {is_last_condition}")
-                
-                if is_last_condition:
-                    # This was the last condition - mark experiment as completed
-                    self.manager.complete_experiment(session_id)
-                    self.manager.log_message(session_id, "Final condition completed - marking experiment as finished")
-                    
-                    # Emit completion status
-                    self.socketio.emit('status_update', {
-                        'status': 'Final condition completed - Experiment finished!',
-                        'countdown_text': 'Experiment Complete',
-                        'protocol_sequence': session_data['experiment_sequence'],
-                        'current_condition_index': session_data['current_condition_index'],
-                        'experiment_completed': True,
-                        'experiment_configured': True,
-                        'practice_trial': False,
-                        'countdown_active': False
-                    }, room=session_id)
-                else:
-                    # Not the last condition - enable next button
-                    self.manager.log_message(session_id, f"Condition {current_index + 1} completed - ready for next condition")
-                    self.socketio.emit('status_update', {
-                        'status': 'Block finished - All objects disabled. Ready for next condition.',
-                        'countdown_text': 'TIME EXPIRED - Block Finished',
-                        'protocol_sequence': session_data['experiment_sequence'],
-                        'current_condition_index': session_data['current_condition_index'],
-                        'experiment_completed': session_data.get('experiment_completed', False),
-                        'experiment_configured': True,
-                        'practice_trial': False,
-                        'countdown_active': False,
-                        'enable_next': True
-                    }, room=session_id)
+        """Handle when a condition timer expires"""
+        try:
+            # Emit condition finished event
+            self.socketio.emit('condition_finished', {
+                'message': 'Condition time expired'
+            }, room=session_id)
+            
+            # Emit status update showing timer expired
+            self.socketio.emit('status_update', {
+                'status': 'Condition time expired - Ready for next condition',
+                'countdown_text': 'Time Expired',
+                'countdown_active': False,
+                'enable_next': True,
+                'enable_force_next': False
+            }, room=session_id)
+            
+            # Send UDP message to disable all objects
+            session_data = self.manager.get_session(session_id)
+            self.manager.send_udp_message({
+                "command": "disable_all",
+                "reason": "timer_expired"
+            }, session_data)
+            
+            self.manager.log_message(session_id, "Condition timer expired - all objects disabled")
+            
+        except Exception as e:
+            logger.error(f"Error handling condition finish for session {session_id}: {e}")
 
-# Initialize timer manager
+# Create timer manager
 timer_manager = TimerManager(manager, socketio)
 
-# Override the manager's timer methods to use our enhanced timer
-def enhanced_start_countdown_timer(session_id, practice_mode=False):
-    """Enhanced start countdown timer with socketio integration"""
+def enhanced_start_countdown_timer(session_id):
+    """Enhanced version of start_countdown_timer with socketio support"""
     session_data = manager.get_session(session_id)
-    session_data['condition_start_time'] = time.time()
     session_data['countdown_active'] = True
+    session_data['condition_start_time'] = time.time()
     
-    if practice_mode:
-        session_data['practice_start_time'] = time.time()
-        manager.log_message(session_id, "5-minute countdown timer started for practice trial")
-        
-        # Emit status update for practice trial
-        socketio.emit('status_update', {
-            'status': 'Practice Trial Active - Timer Started',
-            'countdown_text': 'Practice Time: 05:00',
-            'protocol_sequence': session_data['experiment_sequence'],
-            'current_condition_index': -1,
-            'experiment_completed': False,
-            'experiment_configured': True,
-            'practice_trial': True,
-            'countdown_active': True
-        }, room=session_id)
-    else:
-        manager.log_message(session_id, "5-minute countdown timer started for current condition")
-        
-        # Emit status update with protocol sequence
-        socketio.emit('status_update', {
-            'status': f"Condition {session_data['current_condition_index'] + 1} Active - Timer Started",
-            'countdown_text': 'Time Remaining: 05:00',
-            'protocol_sequence': session_data['experiment_sequence'],
-            'current_condition_index': session_data['current_condition_index'],
-            'experiment_completed': session_data.get('experiment_completed', False),
-            'experiment_configured': True,
-            'practice_trial': False,
-            'countdown_active': True
-        }, room=session_id)
-    
-    # Start timer loop
+    # Start timer thread if not running
     timer_manager.start_timer_loop()
+    
+    # Log the timer start
+    manager.log_message(session_id, "Condition countdown timer started (5:00)")
+    
+    # Emit initial countdown state
+    socketio.emit('countdown_update', {
+        'countdown_text': "Time Remaining: 05:00",
+        'remaining_time': 300
+    }, room=session_id)
+
+def enhanced_log_message(session_id, message):
+    """Enhanced version of log_message with socketio support"""
+    log_entry = manager.log_message(session_id, message)
+    
+    # Emit log update via socketio
+    socketio.emit('log_update', {
+        'timestamp': log_entry.split(']')[0][1:],  # Extract timestamp
+        'message': message,
+        'full_message': log_entry
+    }, room=session_id)
+    
+    return log_entry
 
 # Override the manager's start_countdown_timer method
 manager.start_countdown_timer = enhanced_start_countdown_timer
@@ -230,10 +212,12 @@ manager.start_countdown_timer = enhanced_start_countdown_timer
 api_routes = create_api_routes(manager, socketio)
 config_routes = create_config_routes(manager)
 order_routes = create_order_routes(manager)
+lsl_routes = create_lsl_routes(manager, socketio)
 
 app.register_blueprint(api_routes)
 app.register_blueprint(config_routes)
 app.register_blueprint(order_routes)
+app.register_blueprint(lsl_routes)
 
 # WebSocket event handlers
 @socketio.on('connect')
@@ -248,28 +232,32 @@ def handle_disconnect():
 
 @socketio.on('join_session')
 def handle_join_session(data):
-    """Handle client joining a session"""
+    """Handle joining a session room"""
     session_id = data.get('session_id')
     if session_id:
         join_room(session_id)
         emit('joined_session', {'session_id': session_id})
-        logger.info(f"Client joined session: {session_id}")
+        logger.info(f"Client {request.sid} joined session {session_id}")
 
-# Override the manager's log_message method to emit log updates
-original_log_message = manager.log_message
-
-def enhanced_log_message(session_id, message):
-    """Enhanced log message with socketio integration"""
-    full_message = original_log_message(session_id, message)
-    
-    # Emit log update
-    socketio.emit('log_update', {
-        'full_message': full_message
-    }, room=session_id)
-    
-    return full_message
-
+# Override the manager's log_message method to use socketio
 manager.log_message = enhanced_log_message
+
+# Setup cleanup function for application shutdown
+def cleanup_on_exit():
+    """Cleanup function to run on application exit"""
+    import asyncio
+    try:
+        # Run the cleanup in an event loop
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        loop.run_until_complete(cleanup_lsl_controller())
+        loop.close()
+        logger.info("LSL controller cleaned up successfully")
+    except Exception as e:
+        logger.error(f"Error during cleanup: {e}")
+
+# Register cleanup function
+atexit.register(cleanup_on_exit)
 
 if __name__ == '__main__':
     logger.info("Starting VR Experiment Manager")

@@ -1,0 +1,38 @@
+# Core GUI and plotting dependencies
+matplotlib==3.7.2
+numpy==1.24.3
+
+# Bluetooth Low Energy communication
+bleak==0.20.2
+
+# Lab Streaming Layer for real-time data streaming
+pylsl==1.16.1
+
+# Flask web framework for remote API server
+Flask==2.3.3
+Flask-CORS==4.0.0
+
+# HTTP client library for API testing
+requests==2.31.0
+
+# Async support
+asyncio
+
+# CSV handling (built-in)
+# csv
+
+# Threading support (built-in)
+# threading
+
+# Time and datetime support (built-in)
+# time
+# datetime
+
+# Operating system interface (built-in)
+# os
+
+# System-specific parameters (built-in)
+# sys
+
+# Binary data handling (built-in)
+# struct 
